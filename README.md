@@ -3,9 +3,68 @@
 An original cooperative board game of siege and betrayal, playable in any browser. The Citadel is
 surrounded, quests are racing their deadlines, and one of your defenders is secretly working for the enemy.
 
-**Play:** open `index.html`. No build step, no server, no dependencies.
-
 All art and rules are original.
+
+## Run the game
+
+There is nothing to install or build: no Node, no package manager, no server, no internet connection needed.
+
+### 1. Get the files
+Either download the ZIP (**Code > Download ZIP** on GitHub, then extract it) or clone it:
+
+```bash
+git clone https://github.com/generalwax2018/SHADOWS-OF-THE-CITADEL.git
+```
+
+Keep the folder structure as it is: `index.html` loads `css/`, `js/` and `assets/` from beside it.
+
+### 2. Open it
+Double-click **`index.html`**. It opens in your default browser and works straight from the file system.
+
+| Browser | Version |
+|---|---|
+| Chrome, Edge, Brave | any recent version |
+| Firefox | 113 or newer |
+| Safari | 16.4 or newer |
+
+Older browsers can still play offline, but online play and some animations need these versions.
+
+When the page opens, choose how many defenders (3 to 7) and a difficulty, then press **Begin**. Press **Rules** at any
+time for a summary. Turn the **Sound** button on or off in the top bar; browsers only allow audio after your first click.
+
+### 3. Play with friends online (optional)
+Click **Play online** on the start screen and follow [Online play](#online-play) below. You need nothing extra, but
+every player needs the page open in their own browser. Everyone can use their own copy of `index.html`, or you can all
+open the same web address if you host it (next section).
+
+### Host it on the web (optional)
+The game is plain static files, so any static host works. With **GitHub Pages**:
+
+1. Push the repository to GitHub.
+2. Open **Settings > Pages**.
+3. Under **Build and deployment**, choose **Deploy from a branch**, pick `main` and the `/ (root)` folder, and save.
+4. After a minute the game is live at `https://generalwax2018.github.io/SHADOWS-OF-THE-CITADEL/`.
+
+To serve it locally instead (some browsers are stricter about local files), run this in the project folder and open
+`http://localhost:8000`:
+
+```bash
+python -m http.server 8000
+```
+
+### Troubleshooting
+| Problem | Fix |
+|---|---|
+| The board is blank or portraits are missing | The `assets/` folder is not beside `index.html`. Re-extract the whole ZIP and keep the folders together. |
+| No sound | Click anywhere on the page first (browsers block audio until you interact), and check the **Sound** button says "on". |
+| Animations look reduced | Your system has "reduce motion" turned on. The game respects it. |
+| "Copy" buttons do nothing | Select the code in the box and copy it by hand (Ctrl+C or Cmd+C). Some browsers block clipboard access on local files. |
+| Online invite will not connect | Make sure both codes were copied in full. On the same Wi-Fi, tick **Same network only** on both sides. Strict firewalls can block peer-to-peer play. |
+| Saved game or record is gone | They are stored in your browser. Clearing site data, or a private window, removes them. |
+
+## Try it without downloading
+A hosted copy of the single-player game may be available from the project owner as a shared link. It does not
+include online play.
 
 ## How to play
 
