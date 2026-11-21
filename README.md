@@ -1,20 +1,17 @@
 # Shadows of the Citadel
 
-Original cooperative board game with a hidden traitor mechanic.
+Original cooperative board game with a hidden traitor.
 
-Inspired by classic co-op quest games. All art, characters, and rules are original.
+## Play Immediately
 
-## Play
+Download the self-contained `shadows_of_the_citadel.html` (provided in the chat) and open it in any browser.
 
-Open `shadows_of_the_citadel.html` in any browser.  
-Requires the `imagine_images/` folder to be present next to the HTML file for full graphics.
+The board, quest cards, card backs, and all 7 defender portraits are embedded inside the file — no extra folders or images needed.
 
 ## How to Play
 
-1. Progression of Evil — adds siege engines, black swords, or black cards.
-2. Heroic Action — move, play cards to advance quests, draw white cards, or accuse the traitor.
-3. Complete quests to place white swords. Win with a majority of white swords before 7 black swords or 12 siege engines.
+1. Click **Progression of Evil** (adds siege, black sword, or black card).
+2. Perform a **Heroic Action**: select a quest then Play Cards, Draw, Move, or Accuse Traitor.
+3. Complete quests to place white swords. Win with majority white before 7 black swords or 12 siege engines.
 
-## Assets
-
-All board, character, and card art is original and generated for this project.
+All art is original.
