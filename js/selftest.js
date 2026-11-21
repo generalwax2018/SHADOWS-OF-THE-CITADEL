@@ -154,6 +154,66 @@
       }
     }
 
+    // mission cards
+    {
+      const live = () => [...document.querySelectorAll('#missions .mc:not(.leaving)')];
+      const g1 = H.game;
+      check('a mission card is shown for every active quest', live().length === g1.quests.filter(Boolean).length, live().length + ' cards');
+      check('every mission card has art', live().every(c => c.querySelector('.mc-img, .mc-svg')));
+      let allArt = true;
+      C.QUEST_DEFS.forEach(d => {
+        const a = window.CitadelMissions.art(d);
+        const ok = d.img ? /<img[^>]+src="assets\/[a-z-]+\.jpg"/.test(a) : (/<svg/.test(a) && a.length > 2000 && a.includes(d.name.toUpperCase().split(' ')[0]));
+        if (!ok) allArt = false;
+      });
+      check('all 12 missions can render a card illustration', allArt);
+      const svgCards = C.QUEST_DEFS.filter(d => !d.img).length;
+      check('8 missions use generated animated art, 4 use paintings', svgCards === 8 && C.QUEST_DEFS.length === 12);
+      check('animated scenes define moving parts', /class="flame"|class="bob"|class="drift"/.test(window.CitadelMissions.art(C.questDef('sea')) + window.CitadelMissions.art(C.questDef('beacons')) + window.CitadelMissions.art(C.questDef('scouts'))));
+
+      click(live()[0]);
+      check('clicking a mission card opens its panel and selects it', !$('modal').hidden && document.querySelector('#missions .mc.selected'));
+      click($('modalCard').querySelector('[data-a="close"]'));
+
+      // progress: float number + bar + timer text
+      const gg = H.game; const slotP = gg.quests.findIndex(Boolean);
+      const qp = gg.quests[slotP], before = qp.progress;
+      qp.progress = Math.min(qp.needed - 2, before + 2);
+      H.render();
+      const cardP = live().find(c => +c.dataset.slot === slotP);
+      check('progress shows a +N float on the card', !!cardP.querySelector('.mc-float'));
+      check('card progress text matches the game', cardP.querySelector('.mc-prog').textContent.startsWith(String(qp.progress)));
+
+      // completion: the card stamps COMPLETE and a new card enters that slot
+      const gc = H.game; const pc = gc.party[gc.active];
+      const slotC = gc.quests.findIndex((q, i) => q && i !== slotP);
+      const qc = gc.quests[slotC], oldId = qc.id;
+      pc.loc = slotC; qc.progress = qc.needed - 1; pc.hand = [{ id: 7001, suit: C.questDef(qc.id).suit }]; gc.actionsLeft = 2;
+      C.contribute(gc, [7001]);
+      H.render();
+      check('completed mission card shows a COMPLETE stamp', !!document.querySelector('#missions .mc.leaving.success .mc-stamp'));
+      check('a new mission card replaces it', live().some(c => +c.dataset.slot === slotC && c.dataset.qid !== oldId) || gc.quests[slotC] === null);
+
+      // failure: deadline passes at the end of a round
+      const gf = H.game;
+      if (!gf.over) {
+        const slotF = gf.quests.findIndex((q, i) => q && i !== slotC && i !== slotP);
+        gf.quests[slotF].timer = 1;
+        gf.active = gf.party.length - 1; gf.actionsLeft = 2;
+        C.endTurn(gf);
+        H.render();
+        check('a missed deadline shows a FAILED stamp', !!document.querySelector('#missions .mc.leaving.fail .mc-stamp') || H.game.over);
+      }
+      // urgent missions (2 rounds or fewer) are flagged on their card
+      const gu = H.game;
+      const slotU = gu.quests.findIndex(q => q);
+      if (slotU >= 0 && !gu.over) {
+        gu.quests[slotU].timer = 2; H.render();
+        const cu = live().find(c => +c.dataset.slot === slotU);
+        check('a mission with 2 rounds left is marked urgent', !!cu && cu.classList.contains('urgent'));
+      }
+    }
+
     // save survives reload shape
     let saved = null;
     try { saved = JSON.parse(localStorage.getItem('citadel-save-v1')); } catch (e) { /* ignore */ }

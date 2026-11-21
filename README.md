@@ -88,8 +88,19 @@ You lose if any of these happen:
    **Hint** suggests a sensible next step at any time.
 3. **End turn.** Play passes to the next defender. After the last one, a new round starts and every quest deadline drops by 1.
 
-### Quests
-Seven quests are on the board at a time, drawn from twelve. Each costs progress and has a deadline in rounds.
+### Missions
+Seven missions are on the board at a time, drawn from twelve, and each has its own card in the **Missions** strip under
+the board. A card shows its illustration, its favoured suit, the rounds left, the progress made and which defenders are
+standing there. Select a card to open it full size, or to move there.
+
+- Four missions use the painted cards. The other eight have generated illustrations that move: beacon fires flicker,
+  the sea rolls under a storm, the forge throws sparks, fog drifts through the pines, banners sway.
+- Cards animate as the game changes: a **+N** floats up when you make progress, a card pulses red when it has two
+  rounds or fewer left, it is stamped **COMPLETE** and flips away when finished, and it is stamped **FAILED**, greys out
+  and drops when its deadline passes. A new mission then flips into the empty place.
+- On a phone the strip becomes a swipeable row.
+
+Each mission costs progress and has a deadline in rounds.
 - **Complete** it: a white sword is seated, the siege falls back by 1, and every defender draws a card.
 - **Miss the deadline**: a black sword is seated.
 
@@ -153,6 +164,7 @@ Every game has a seed. Enter one on the setup screen, or share a link like `inde
 | `index.html`, `css/style.css` | the page and its styling |
 | `js/engine.js` | all the rules: pure logic, no DOM, seedable and saveable |
 | `js/ui.js` | renders engine state onto the painted board, sound/animation effects, lobby screens |
+| `js/missions.js` | mission card art: the paintings, plus generated animated SVG scenes for the rest |
 | `js/sound.js` | synthesized sound effects and ambience (Web Audio, no audio files) |
 | `js/net.js` | WebRTC transport and compact invite/reply codes |
 | `js/online.js` | host (authoritative, runs bots) and guest sessions, no DOM |

@@ -322,3 +322,122 @@ label.check { display: flex; gap: 8px; align-items: center; margin: 12px 0 0; fo
 /* toasts sit over the (decorative) mountain panel so they never cover quest frames or the wheel */
 .toasts { left: auto; right: 2%; top: auto; bottom: 3%; transform: none; align-items: flex-end; max-width: 44%; }
 .toast { font-size: 1.45cqw; padding: 0.5cqw 1.2cqw; max-width: 42cqw; text-align: right; }
+
+/* ======================= mission cards ======================= */
+.stage-wrap { position: static; }
+@media (min-width: 981px) { .side { position: sticky; top: 10px; max-height: calc(100vh - 20px); overflow-y: auto; scrollbar-width: thin; padding-right: 2px; } }
+
+.missions-title { margin: 18px 2px 8px; font-size: 13px; letter-spacing: .12em; text-transform: uppercase; color: var(--gold); font-weight: 600; }
+.missions-title small { text-transform: none; letter-spacing: 0; color: var(--muted); font-weight: 400; margin-left: 8px; }
+.missions { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 10px; }
+.mslot { position: relative; aspect-ratio: 2 / 3; border-radius: 9px; }
+.mslot.empty { border: 1px dashed var(--edge); background: rgba(255,255,255,.02); }
+
+.mc {
+  position: absolute; inset: 0; width: 100%; height: 100%; padding: 0; overflow: hidden; cursor: pointer; text-align: left;
+  border: 2px solid #4a3b28; border-radius: 9px; background: #0d0a07; color: var(--ink);
+  transform: perspective(800px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) translateY(var(--ty, 0px));
+  transition: transform .18s ease-out, border-color .2s, box-shadow .25s;
+  box-shadow: 0 6px 16px rgba(0,0,0,.55);
+}
+.mc:hover { --ty: -6px; border-color: var(--gold); background: #0d0a07; }
+.mc.selected { border-color: var(--gold-hi); box-shadow: 0 0 20px rgba(230,201,143,.6), 0 6px 16px rgba(0,0,0,.55); }
+.mc:focus-visible { outline: 2px solid var(--gold-hi); outline-offset: 3px; }
+.mc.urgent { animation: urgent 1.7s ease-in-out infinite; }
+@keyframes urgent { 0%, 100% { box-shadow: 0 0 0 rgba(255,60,40,0), 0 6px 16px rgba(0,0,0,.55); border-color: #6b2b24; } 50% { box-shadow: 0 0 22px rgba(255,70,40,.75), 0 6px 16px rgba(0,0,0,.55); border-color: #d0584a; } }
+.mc.hit { animation: hit .6s ease-out; }
+@keyframes hit { 0% { filter: none; } 25% { filter: brightness(1.6) saturate(0) ; transform: translateX(-4px); } 50% { transform: translateX(4px); } 100% { filter: none; } }
+
+.mc-art { position: absolute; inset: 0; }
+.mc-img, .mc-svg { width: 100%; height: 100%; display: block; object-fit: cover; user-select: none; pointer-events: none; }
+.mc-img { animation: kenburns 16s ease-in-out infinite alternate; transform-origin: 50% 40%; }
+@keyframes kenburns { from { transform: scale(1) translate(0, 0); } to { transform: scale(1.09) translate(-1.2%, -1.5%); } }
+.mc-shine { position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity .25s;
+  background: radial-gradient(circle at var(--sx, 50%) 30%, rgba(255,240,200,.28), transparent 55%); }
+.mc:hover .mc-shine { opacity: 1; }
+
+.mc-top { position: absolute; left: 4%; right: 4%; top: 3.5%; display: flex; justify-content: space-between; align-items: center; pointer-events: none; }
+.mc-chip { display: inline-flex; align-items: center; gap: 3px; height: 20px; min-width: 20px; padding: 0 5px; border-radius: 99px; background: rgba(8,6,4,.86); border: 1px solid #6e5730; font-size: 11px; line-height: 1; }
+.mc-chip svg { width: 12px; height: 12px; fill: currentColor; }
+.mc-suit { justify-content: center; }
+.mc-timer { color: var(--gold-hi); }
+.mc.urgent .mc-timer { color: #ff9a8a; border-color: #d0584a; animation: pulse 1s ease-in-out infinite; }
+.mc.urgent .mc-timer svg { animation: flip 2s ease-in-out infinite; }
+@keyframes flip { 0%, 40% { transform: rotate(0); } 60%, 100% { transform: rotate(180deg); } }
+
+.mc-bottom { position: absolute; left: 0; right: 0; bottom: 0; padding: 14px 7px 7px; pointer-events: none; background: linear-gradient(to top, rgba(6,4,3,.95) 40%, rgba(6,4,3,0)); }
+.mc-meta { display: flex; justify-content: space-between; align-items: center; gap: 4px; font-size: 11px; color: #e1d6bd; margin-bottom: 4px; }
+.mc-prog { font-variant-numeric: tabular-nums; font-weight: 600; text-shadow: 0 1px 2px #000; }
+.mc-tokens { display: flex; }
+.mc-token { width: 20px; height: 20px; margin-left: -6px; border-radius: 50%; border: 1.5px solid #888; background-size: cover; background-position: 50% 14%; box-shadow: 0 1px 4px #000; }
+.mc-token.active { border-color: var(--gold-hi); box-shadow: 0 0 8px var(--gold-hi); }
+.mc-bar { height: 6px; background: #000; border-radius: 99px; overflow: hidden; border: 1px solid #3a2f22; }
+.mc-bar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #8a6a32, #f0d89a); box-shadow: 0 0 8px rgba(240,216,154,.7); }
+
+.mc.gain { animation: cardgain .9s ease-out; }
+@keyframes cardgain { 0% { box-shadow: 0 0 0 0 rgba(240,216,154,.9); transform: translateY(-4px) scale(1.03); } 100% { box-shadow: 0 0 26px 8px rgba(240,216,154,0); transform: none; } }
+.mc-float { position: absolute; left: 50%; top: 42%; z-index: 4; transform: translateX(-50%); font: 700 28px Georgia, serif; color: #fff3c9; text-shadow: 0 0 14px #ffb347, 0 2px 4px #000; pointer-events: none; animation: floatup 1.3s ease-out forwards; }
+@keyframes floatup { 0% { opacity: 0; transform: translate(-50%, 14px) scale(.6); } 20% { opacity: 1; transform: translate(-50%, 0) scale(1.25); } 100% { opacity: 0; transform: translate(-50%, -46px) scale(1); } }
+
+/* new card flips in; finished card stamps and leaves */
+.mc.entering { animation: flipin2 .8s cubic-bezier(.2,.9,.3,1) both; }
+@keyframes flipin2 { 0% { opacity: 0; transform: perspective(800px) rotateY(-100deg) translateY(-24px) scale(.9); } 100% { opacity: 1; transform: none; } }
+.mc.leaving { z-index: 3; pointer-events: none; animation-duration: 1.4s; animation-fill-mode: forwards; animation-timing-function: ease-in; }
+.mc.leaving.success { animation-name: winout; border-color: var(--gold-hi); }
+.mc.leaving.fail { animation-name: failout; border-color: #d0584a; }
+.mc.leaving .mc-bottom, .mc.leaving .mc-top { opacity: .5; }
+@keyframes winout { 0% { transform: none; filter: brightness(1.6); box-shadow: 0 0 40px 10px rgba(255,220,130,.9); } 35% { transform: scale(1.08); filter: brightness(1.3); } 70% { opacity: 1; transform: scale(1.04) translateY(-8px); box-shadow: 0 0 30px rgba(255,220,130,.7); } 100% { opacity: 0; transform: perspective(800px) rotateY(90deg) translateY(-30px) scale(.9); } }
+@keyframes failout { 0% { transform: none; } 12% { transform: translateX(-6px) rotate(-1.5deg); filter: brightness(.9); } 24% { transform: translateX(6px) rotate(1.5deg); } 40% { filter: grayscale(1) brightness(.6); transform: none; } 100% { opacity: 0; filter: grayscale(1) brightness(.35); transform: translateY(70px) rotate(8deg) scale(.92); } }
+.mc-stamp { position: absolute; left: 50%; top: 46%; z-index: 5; padding: 4px 14px; border: 3px solid; border-radius: 4px; font: 700 19px Georgia, serif; letter-spacing: .14em; white-space: nowrap; transform: translate(-50%, -50%) rotate(-12deg) scale(2.2); opacity: 0; animation: stamp .45s .12s cubic-bezier(.2,1.4,.4,1) forwards; background: rgba(8,6,4,.82); }
+.mc-stamp.success { color: #ffe9a8; border-color: #f0d89a; text-shadow: 0 0 12px #ffb347; }
+.mc-stamp.fail { color: #ff9a8a; border-color: #d0584a; }
+@keyframes stamp { to { opacity: 1; transform: translate(-50%, -50%) rotate(-12deg) scale(1); } }
+
+/* quest card inside the detail dialog */
+.mc-modal { width: min(100%, 340px); aspect-ratio: 2 / 3; margin: 0 auto 10px; border-radius: 10px; overflow: hidden; border: 2px solid #4a3b28; box-shadow: 0 10px 30px #000; }
+
+/* ---------- in-scene animation for the generated mission illustrations ---------- */
+.mc-svg .flame { transform-box: fill-box; transform-origin: 50% 100%; animation: flame .8s ease-in-out infinite alternate; }
+@keyframes flame { from { transform: scale(1, 1) skewX(-4deg); } to { transform: scale(.86, 1.14) skewX(5deg); } }
+.mc-svg .glow-pulse { transform-box: fill-box; transform-origin: 50% 50%; animation: glowp 2.4s ease-in-out infinite; }
+@keyframes glowp { 0%, 100% { opacity: .65; transform: scale(.94); } 50% { opacity: 1; transform: scale(1.06); } }
+.mc-svg .lantern { animation-duration: 3.6s; }
+.mc-svg .fireglow { animation: fireglow 1.3s ease-in-out infinite alternate; }
+@keyframes fireglow { from { opacity: .45; } to { opacity: .95; } }
+.mc-svg .twinkle { animation: twinkle 3s ease-in-out infinite; }
+@keyframes twinkle { 0%, 100% { opacity: .25; } 50% { opacity: 1; } }
+.mc-svg .rise { animation: rise 3s linear infinite; }
+@keyframes rise { 0% { transform: translateY(0); opacity: 0; } 15% { opacity: 1; } 100% { transform: translateY(-80px) translateX(8px); opacity: 0; } }
+.mc-svg .bob { transform-box: fill-box; transform-origin: 50% 100%; animation: bob 3.6s ease-in-out infinite; }
+@keyframes bob { 0%, 100% { translate: 0 0; rotate: -2deg; } 50% { translate: 0 -4px; rotate: 2deg; } }
+.mc-svg .wave { animation: wave 7s linear infinite; }
+.mc-svg .wave.slow { animation-duration: 12s; animation-direction: reverse; }
+@keyframes wave { to { transform: translateX(-120px); } }
+.mc-svg .flash { animation: flash 7s linear infinite; opacity: 0; }
+@keyframes flash { 0%, 88%, 100% { opacity: 0; } 89% { opacity: 1; } 91% { opacity: .15; } 93% { opacity: 1; } 96% { opacity: 0; } }
+.mc-svg .drift { animation: drift 20s ease-in-out infinite alternate; }
+.mc-svg .drift.rev { animation-direction: alternate-reverse; animation-duration: 26s; }
+.mc-svg .drift-slow { animation: drift 32s ease-in-out infinite alternate; }
+@keyframes drift { from { transform: translateX(-34px); } to { transform: translateX(34px); } }
+.mc-svg .sway { transform-box: fill-box; transform-origin: 0 0; animation: sway 2.6s ease-in-out infinite alternate; }
+@keyframes sway { from { transform: skewY(-5deg) scaleX(1); } to { transform: skewY(5deg) scaleX(.9); } }
+.mc-svg .hammer { transform-box: fill-box; transform-origin: 50% 100%; animation: swing 1.2s ease-in infinite; }
+@keyframes swing { 0% { transform: rotate(-6deg); } 45% { transform: rotate(-34deg); } 58% { transform: rotate(8deg); } 100% { transform: rotate(-6deg); } }
+.mc-svg .spin-slow { transform-origin: 200px 250px; animation: spin 90s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.mc-svg .paper { animation: paper 7s linear infinite; }
+@keyframes paper { 0% { transform: translate(0, 0) rotate(0); opacity: 0; } 15% { opacity: .9; } 100% { transform: translate(30px, -120px) rotate(160deg); opacity: 0; } }
+.mc-svg .beam { animation: beam 4s ease-in-out infinite alternate; }
+@keyframes beam { from { opacity: .06; } to { opacity: .22; } }
+
+/* tablets and phones: cards become a swipeable row */
+@media (max-width: 980px) {
+  .missions { grid-auto-flow: column; grid-template-columns: none; grid-auto-columns: minmax(120px, 30%); overflow-x: auto; padding: 4px 2px 12px; scroll-snap-type: x mandatory; }
+  .mslot { scroll-snap-align: start; }
+}
+@media (max-width: 560px) { .missions { grid-auto-columns: 44%; } .missions-title small { display: none; } }
+.quest-list-panel { display: none !important; }
+
+.mc:disabled { opacity: 1; cursor: default; }
+
+.mc-top { top: 20.5%; left: 5%; right: 5%; }

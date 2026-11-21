@@ -337,10 +337,115 @@
     if (!p.hand.length) hand.appendChild(el('div', 'empty-note', 'No cards. Gather supplies to draw more.'));
     $('handHint').textContent = `${p.hand.length}/${C.HAND_LIMIT}` + (def ? ` - ${def.name} likes ${C.SUIT_LABEL[def.suit]}` : '');
 
+    renderMissions();
     renderQuestList();
     renderActions();
     renderParty();
     renderRumors();
+  }
+
+  // ---------- mission cards ----------
+  const HOURGLASS = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h12v4l-5 6 5 6v4H6v-4l5-6-5-6z"/></svg>';
+  const Missions = window.CitadelMissions;
+
+  // Cards persist between renders so their animations keep running; only changes are applied.
+  function renderMissions() {
+    const s = game, box = $('missions');
+    if (!Missions) return;
+    if (box.children.length !== C.SLOTS) {
+      box.innerHTML = '';
+      for (let i = 0; i < C.SLOTS; i++) { const d = el('div', 'mslot'); d.setAttribute('role', 'listitem'); box.appendChild(d); }
+    }
+    const fresh = !ui.prev;                         // first render or a new game: no transitions
+    const newLines = s.log.slice(Math.min(ui.shownLog, s.log.length));
+    s.quests.forEach((q, slot) => {
+      const cell = box.children[slot];
+      const card = [...cell.children].find(c => c.classList.contains('mc') && !c.classList.contains('leaving'));
+      const key = q ? q.id : '';
+      if (card && card.dataset.qid === key) { updateCard(card, q, slot); return; }
+      let delay = 0;
+      if (card) {
+        const old = C.questDef(card.dataset.qid).name;
+        const won = newLines.some(l => l.text.indexOf(old + ' is complete') === 0);
+        const lost = newLines.some(l => l.text.indexOf(old + ' has failed') === 0);
+        if (fresh || reduced || (!won && !lost)) card.remove();
+        else { leaveCard(card, won ? 'success' : 'fail'); delay = 750; }
+      }
+      cell.classList.toggle('empty', !q);
+      if (q) {
+        const nc = buildCard(q, slot);
+        if (!fresh && !reduced) { nc.classList.add('entering'); nc.style.animationDelay = delay + 'ms'; setTimeout(() => nc.classList.remove('entering'), delay + 900); }
+        cell.appendChild(nc);
+        updateCard(nc, q, slot, true);
+      }
+    });
+  }
+
+  function buildCard(q, slot) {
+    const def = C.questDef(q.id);
+    const b = el('button', 'mc');
+    b.type = 'button';
+    b.dataset.qid = q.id;
+    b.dataset.slot = slot;
+    b.innerHTML = `<div class="mc-art">${Missions.art(def)}</div><div class="mc-shine"></div>` +
+      `<div class="mc-top"><span class="mc-chip mc-suit suit-${def.suit}" title="Favoured suit: ${C.SUIT_LABEL[def.suit]}">${ICONS[def.suit]}</span>` +
+      `<span class="mc-chip mc-timer" title="Rounds left">${HOURGLASS}<b></b></span></div>` +
+      '<div class="mc-bottom"><div class="mc-meta"><span class="mc-prog"></span><span class="mc-tokens"></span></div><div class="mc-bar"><i></i></div></div>';
+    b.addEventListener('click', () => onSlot(slot));
+    if (!reduced) {
+      b.addEventListener('pointermove', e => {
+        if (e.pointerType === 'touch') return;
+        const r = b.getBoundingClientRect();
+        b.style.setProperty('--ry', ((e.clientX - r.left) / r.width - 0.5) * 12 + 'deg');
+        b.style.setProperty('--rx', (0.5 - (e.clientY - r.top) / r.height) * 10 + 'deg');
+        b.style.setProperty('--sx', ((e.clientX - r.left) / r.width * 100) + '%');
+      });
+      b.addEventListener('pointerleave', () => { b.style.removeProperty('--ry'); b.style.removeProperty('--rx'); });
+    }
+    return b;
+  }
+
+  function updateCard(card, q, slot, isNew) {
+    const s = game, def = C.questDef(q.id);
+    const pct = Math.min(100, Math.round(q.progress / q.needed * 100));
+    const bar = card.querySelector('.mc-bar i');
+    const was = card._prog == null ? q.progress : card._prog;
+    if (!isNew && q.progress > was && !reduced) {
+      card.querySelector('.mc-art').classList.remove('gain'); void card.offsetWidth;
+      card.classList.remove('gain'); void card.offsetWidth; card.classList.add('gain');
+      setTimeout(() => card.classList.remove('gain'), 900);
+      const f = el('span', 'mc-float', '+' + (q.progress - was));
+      card.appendChild(f); setTimeout(() => f.remove(), 1300);
+      if (bar.animate) bar.animate([{ width: (card._pct || 0) + '%' }, { width: pct + '%' }], { duration: 650, easing: 'cubic-bezier(.2,.8,.2,1)' });
+    } else if (!isNew && q.progress < was && !reduced) {
+      // sabotage undid progress
+      card.classList.remove('hit'); void card.offsetWidth; card.classList.add('hit'); setTimeout(() => card.classList.remove('hit'), 700);
+    }
+    bar.style.width = pct + '%';
+    card._prog = q.progress; card._pct = pct;
+    card.querySelector('.mc-prog').textContent = `${q.progress} / ${q.needed}`;
+    card.querySelector('.mc-timer b').textContent = q.timer;
+    card.classList.toggle('urgent', q.timer <= 2);
+    card.classList.toggle('selected', ui.selectedSlot === slot);
+    const here = s.party.map((p, i) => i).filter(i => s.party[i].loc === slot && s.party[i].alive && !s.party[i].exiled);
+    card.classList.toggle('here', here.length > 0);
+    const tk = card.querySelector('.mc-tokens');
+    tk.innerHTML = '';
+    here.forEach(i => {
+      const t = el('span', 'mc-token' + (i === s.active ? ' active' : ''));
+      t.style.backgroundImage = `url('${portraitUrl(i)}')`;
+      t.title = playerLabel(i);
+      tk.appendChild(t);
+    });
+    card.setAttribute('aria-label', `${def.name}. Favoured suit ${C.SUIT_LABEL[def.suit]}. Progress ${q.progress} of ${q.needed}. ${q.timer} rounds left.`);
+  }
+
+  function leaveCard(card, outcome) {
+    card.classList.add('leaving', outcome);
+    card.disabled = true;
+    const st = el('div', 'mc-stamp ' + outcome, outcome === 'success' ? 'COMPLETE' : 'FAILED');
+    card.appendChild(st);
+    setTimeout(() => card.remove(), 1500);
   }
 
   function renderQuestList() {
@@ -553,7 +658,8 @@
 
   function openQuest(slot) {
     const q = game.quests[slot], def = C.questDef(q.id), s = game;
-    const art = def.img ? `<img class="quest-art" src="assets/${def.img}.jpg" alt="${esc(def.name)}">` : `<div class="quest-plate">${esc(def.name)}</div>`;
+    const art = def.img ? `<img class="quest-art" src="assets/${def.img}.jpg" alt="${esc(def.name)}">`
+      : (window.CitadelMissions ? `<div class="mc-modal">${window.CitadelMissions.art(def)}</div>` : `<div class="quest-plate">${esc(def.name)}</div>`);
     const canMove = !s.over && mine() && s.actionsLeft > 0 && s.party[s.active].loc !== slot;
     openModal(
       `<h2 id="modalTitle" class="visually-hidden" style="display:none">${esc(def.name)}</h2>${art}` +
