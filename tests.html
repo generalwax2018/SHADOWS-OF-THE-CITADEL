@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Shadows of the Citadel - engine tests</title>
+<style>
+  body { font: 14px/1.5 system-ui, sans-serif; background: #111; color: #ddd; padding: 20px; max-width: 820px; margin: auto; }
+  .pass { color: #7bc67b; } .fail { color: #ff7777; font-weight: bold; }
+  h2 { color: #c9a66b; } pre { background: #1b1b1b; padding: 10px; }
+</style>
+</head>
+<body>
+<h1>Engine tests</h1>
+<div id="out"></div>
+<script src="js/engine.js"></script>
+<script>
+const C = window.Citadel;
+const out = document.getElementById('out');
+let passed = 0, failed = 0;
+function test(name, fn) {
+  try { fn(); passed++; out.insertAdjacentHTML('beforeend', `<div class="pass">PASS ${name}</div>`); }
+  catch (e) { failed++; out.insertAdjacentHTML('beforeend', `<div class="fail">FAIL ${name}: ${e.message}</div>`); }
+}
+function eq(a, b, m) { if (a !== b) throw new Error(`${m || 'eq'}: expected ${b}, got ${a}`); }
+function ok(c, m) { if (!c) throw new Error(m || 'expected truthy'); }
+
+// Force a clean heroic state for rule checks.
+function fresh(seed, size) {
+  const s = C.createGame({ seed: seed || 7, partySize: size || 5, difficulty: 'normal' });
+  s.over = null; s.actionsLeft = 2; s.active = 0;
+  return s;
+}
+function setActive(s, id) {
+  const i = s.party.findIndex(p => p.id === id);
+  if (i < 0) return -1;
+  s.active = i; s.actionsLeft = 2;
+  return i;
+}
+
+test('same seed gives identical games', () => {
+  const a = C.createGame({ seed: 42, partySize: 5 }), b = C.createGame({ seed: 42, partySize: 5 });
+  eq(JSON.stringify(a), JSON.stringify(b));
+});
+test('setup: 5 defenders, 4 cards each, 7 quests dealt, one traitor', () => {
+  const s = C.createGame({ seed: 1, partySize: 5 });
+  eq(s.party.length, 5);
+  ok(s.party.every(p => p.hand.length >= 4 || !p.alive));
+  eq(s.quests.filter(Boolean).length, 7);
+  ok(s.traitor >= 0 && s.traitor < 5);
+});
+test('deck conserves cards (48 white)', () => {
+  const s = C.createGame({ seed: 3, partySize: 6 });
+  const inHands = s.party.reduce((n, p) => n + p.hand.length, 0);
+  eq(inHands + s.whiteDeck.length + s.whiteDiscard.length, 48);
+});
+test('state survives JSON save/load and keeps playing', () => {
+  const s = C.createGame({ seed: 9 });
+  const t = JSON.parse(JSON.stringify(s));
+  C.endTurn(t);
+  ok(t.turn >= 2);
+});
+test('move to quest costs an action; Scout Elira moves free', () => {
+  let s = fresh(5, 7);
+  const e = setActive(s, 'elira');
+  ok(e >= 0, 'elira in party');
+  C.move(s, 0); eq(s.actionsLeft, 2, 'elira free');
+  const o = s.party.findIndex(p => p.id !== 'elira' && p.id !== 'cavalry');
+  s.active = o; s.actionsLeft = 2;
+  C.move(s, 1); eq(s.actionsLeft, 1, 'others pay');
+});
+test('cannot move to an empty frame or in place', () => {
+  const s = fresh(5, 5);
+  ok(C.move(s, 0).ok, 'first move works');
+  ok(!C.move(s, 0).ok, 'already there');
+  s.quests[3] = null;
+  ok(!C.move(s, 3).ok, 'empty frame');
+});
+test('contribute: matching suit counts double, others single', () => {
+  const s = fresh(11, 5);
+  const p = s.party[s.active]; p.id = 'shield'; // neutral ability
+  C.move(s, 0);
+  const suit = C.questDef(s.quests[0].id).suit;
+  const other = C.SUITS.find(x => x !== suit && x !== 'blade');
+  p.hand = [{ id: 901, suit }, { id: 902, suit: other }];
+  eq(C.contributeValue(s, s.active, [901, 902]), 3);
+});
+test('Veyra adds +1; Berserker blades add +1 each', () => {
+  const s = fresh(12, 5);
+  const p = s.party[s.active]; p.id = 'veyra'; C.move(s, 0);
+  const suit = C.questDef(s.quests[0].id).suit;
+  p.hand = [{ id: 911, suit }];
+  eq(C.contributeValue(s, s.active, [911]), 3);
+  p.id = 'berserker';
+  p.hand = [{ id: 912, suit: 'blade' }];
+  const base = suit === 'blade' ? 2 : 1;
+  eq(C.contributeValue(s, s.active, [912]), base + 1);
+});
+test('completing a quest seats a white sword, redeals the frame, frees the party', () => {
+  const s = fresh(13, 5);
+  const p = s.party[s.active]; p.id = 'shield'; C.move(s, 2);
+  const q = s.quests[2]; const suit = C.questDef(q.id).suit;
+  q.progress = q.needed - 1;
+  p.hand = [{ id: 921, suit }];
+  const r = C.contribute(s, [921]);
+  ok(r.ok);
+  eq(C.count(s, 'white'), 1);
+  ok(s.quests[2] === null || s.quests[2].id !== q.id, 'frame redealt');
+  eq(p.loc, C.CITADEL);
+});
+test('contribute rejects >3 cards, foreign cards, and no-quest', () => {
+  const s = fresh(14, 5);
+  const p = s.party[s.active];
+  ok(!C.contribute(s, [1]).ok, 'at citadel');
+  C.move(s, 0);
+  p.hand = [1, 2, 3, 4].map(i => ({ id: 930 + i, suit: 'blade' }));
+  ok(!C.contribute(s, [931, 932, 933, 934]).ok, 'too many');
+  ok(!C.contribute(s, [99999]).ok, 'not in hand');
+});
+test('actions run out and block further play', () => {
+  const s = fresh(15, 5);
+  s.party[s.active].id = 'shield';
+  C.drawAction(s); C.drawAction(s);
+  ok(!C.drawAction(s).ok);
+});
+test('Cavalry gets 3 actions, Harren draws 3', () => {
+  let s = C.createGame({ seed: 77, partySize: 7 });
+  const c = s.party.findIndex(p => p.id === 'cavalry');
+  s.over = null; s.active = c; s.actionsLeft = 3;
+  s.party[c].hand = [];
+  eq(C.drawAction(s).ok, true); eq(s.party[c].hand.length, 2);
+  const h = s.party.findIndex(p => p.id === 'harren');
+  s.active = h; s.actionsLeft = 2; s.party[h].hand = [];
+  C.drawAction(s); eq(s.party[h].hand.length, 3);
+});
+test('hand limit enforced at end of turn', () => {
+  const s = fresh(16, 5);
+  const p = s.party[s.active];
+  p.hand = []; for (let i = 0; i < 11; i++) p.hand.push({ id: 960 + i, suit: 'boot' });
+  C.endTurn(s);
+  ok(p.hand.length <= C.HAND_LIMIT);
+});
+test('rest heals everyone at the Citadel, only there', () => {
+  const s = fresh(17, 5);
+  s.party.forEach(p => { p.hp = 1; p.loc = C.CITADEL; });
+  const r = C.rest(s); ok(r.ok);
+  ok(s.party.every(p => p.hp === 2));
+  s.party[s.active].loc = 0;
+  ok(!C.rest(s).ok);
+});
+test('accuse needs evidence; wrong accusation stuns + black sword; right one exiles + white sword', () => {
+  const s = fresh(18, 5);
+  s.rumors = [];                                  // the opening Shadow draw may already have produced one
+  ok(!C.accuse(s, 1).ok, 'no rumors yet');
+  s.rumors.push([0, 1, 2]);
+  const innocent = s.party.findIndex((p, i) => i !== s.traitor && i !== s.active);
+  const w0 = C.count(s, 'white'), b0 = C.count(s, 'black');
+  ok(C.accuse(s, innocent).ok);
+  eq(C.count(s, 'black'), b0 + 1);
+  ok(s.party[innocent].stunned);
+  s.actionsLeft = 2;
+  if (s.traitor === s.active) { s.active = innocent === 0 ? 1 : 0; }
+  ok(C.accuse(s, s.traitor).ok);
+  eq(C.count(s, 'white'), w0 + 1);
+  ok(s.traitorRevealed && s.party[s.traitor].exiled);
+});
+test('cannot accuse yourself', () => {
+  const s = fresh(19, 5);
+  s.rumors.push([0, 1]);
+  ok(!C.accuse(s, s.active).ok);
+});
+test('every rumor contains the traitor', () => {
+  for (let seed = 1; seed <= 40; seed++) {
+    const s = C.createGame({ seed, partySize: 6 });
+    for (let k = 0; k < 6 && !s.over; k++) C.endTurn(s);
+    s.rumors.forEach(r => ok(r.includes(s.traitor), `seed ${seed}`));
+  }
+});
+test('12 siege engines overruns the Citadel', () => {
+  const s = fresh(21, 5);
+  s.siege = 11;
+  s.party.forEach(p => { p.hand = []; });
+  for (let i = 0; i < 40 && !s.over; i++) C.endTurn(s);
+  ok(s.over && !s.over.win, 'siege eventually ends the game');
+});
+test('all defenders falling loses', () => {
+  const s = fresh(23, 3);
+  s.party.forEach(p => { p.hp = 1; });
+  for (let i = 0; i < 80 && !s.over; i++) C.endTurn(s);
+  ok(s.over, 'game ended');
+});
+test('seating the 7th white sword wins', () => {
+  const s = fresh(24, 5);
+  for (let i = 0; i < 6; i++) s.seats[i] = 'white';
+  s.party[s.active].id = 'shield'; C.move(s, 0);
+  const q = s.quests[0]; q.progress = q.needed - 1;
+  s.party[s.active].hand = [{ id: 970, suit: C.questDef(q.id).suit }];
+  C.contribute(s, [970]);
+  ok(s.over && s.over.win, 'won');
+  ok(!C.drawAction(s).ok, 'no actions after the end');
+});
+test('seating the 6th black sword loses', () => {
+  const s = fresh(25, 5);
+  for (let i = 0; i < 5; i++) s.seats[i] = 'black';
+  s.rumors.push([0, 1, 2]);
+  const innocent = s.party.findIndex((p, i) => i !== s.traitor && i !== s.active);
+  C.accuse(s, innocent);
+  ok(s.over && !s.over.win);
+});
+test('quest timers fail quests into black swords', () => {
+  const s = fresh(26, 5);
+  s.quests.forEach(q => { if (q) q.timer = 1; });
+  s.active = s.party.length - 1; s.actionsLeft = 2;
+  const before = C.count(s, 'black');
+  C.endTurn(s);       // wraps to seat 0 -> new round -> timers hit 0
+  ok(C.count(s, 'black') > before || s.over, 'black sword seated');
+});
+test('a stunned defender is skipped exactly once', () => {
+  const s = fresh(27, 5);
+  s.party[1].stunned = true;
+  s.active = 0; s.actionsLeft = 2;
+  C.endTurn(s);
+  ok(s.active !== 1 || s.over, 'skipped');
+  ok(!s.party[1].stunned);
+});
+test('give: same place only, hand limit, not yourself, costs an action', () => {
+  const s = fresh(31, 5);
+  const a = s.active, b = (a + 1) % 5, c = (a + 2) % 5;
+  s.party.forEach(p => { p.loc = C.CITADEL; p.hand = []; });
+  s.party[a].id = 'shield';
+  s.party[a].hand = [{ id: 801, suit: 'blade' }, { id: 802, suit: 'boot' }];
+  ok(!C.give(s, 801, a).ok, 'not yourself');
+  s.party[c].loc = 0;
+  ok(!C.give(s, 801, c).ok, 'different place');
+  s.party[b].hand = Array.from({ length: C.HAND_LIMIT }, (_, i) => ({ id: 700 + i, suit: 'scroll' }));
+  ok(!C.give(s, 801, b).ok, 'full hand');
+  s.party[b].hand.pop();
+  ok(!C.give(s, 9999, b).ok, 'unknown card');
+  const left = s.actionsLeft;
+  ok(C.give(s, 801, b).ok);
+  eq(s.actionsLeft, left - 1);
+  ok(s.party[b].hand.some(x => x.id === 801) && !s.party[a].hand.some(x => x.id === 801));
+});
+test('suggest always returns a legal move (100 seeded games played only by hints)', () => {
+  let steps = 0;
+  for (let seed = 1; seed <= 100; seed++) {
+    const s = C.createGame({ seed, partySize: 3 + (seed % 5), difficulty: ['easy', 'normal', 'hard'][seed % 3] });
+    let guard = 0;
+    while (!s.over && guard++ < 300) {
+      const h = C.suggest(s);
+      ok(h && h.type, 'got a hint');
+      let r;
+      if (h.type === 'play') r = C.contribute(s, h.cards);
+      else if (h.type === 'move') r = C.move(s, h.dest);
+      else if (h.type === 'draw') r = C.drawAction(s);
+      else if (h.type === 'rest') r = C.rest(s);
+      else if (h.type === 'accuse') r = C.accuse(s, h.target);
+      else r = C.endTurn(s);
+      steps++;
+      ok(r.ok, `seed ${seed}: hint ${h.type} was rejected: ${r.msg}`);
+      if (h.type === 'draw' && !s.over && s.actionsLeft === 0) C.endTurn(s);
+      else if (!s.over && s.actionsLeft === 0) C.endTurn(s);
+    }
+    ok(s.over || guard >= 300, 'finishes');
+  }
+  ok(steps > 500, 'actually played');
+});
+test('redact hides the Traitor, seed and deck contents from other players', () => {
+  const s = fresh(41, 5);
+  const other = (s.traitor + 1) % 5;
+  const v = C.redact(s, other);
+  eq(v.traitor, -1, 'traitor hidden');
+  eq(v.seed, 0, 'seed hidden'); eq(v.rng, 0, 'rng hidden');
+  ok(v.whiteDeck.every(c => c === 0), 'white deck hidden');
+  ok(v.shadowDeck.every((c, i) => c === '?' || i === v.shadowDeck.length - 1), 'shadow deck hidden');
+  eq(v.shadowDeck.length, s.shadowDeck.length, 'counts preserved');
+  eq(C.redact(s, s.traitor).traitor, s.traitor, 'traitor knows');
+  ok(!JSON.stringify(v).includes('"seed":' + s.seed) || s.seed === 0, 'seed absent from payload');
+  s.traitorRevealed = true;
+  eq(C.redact(s, other).traitor, s.traitor, 'revealed to all');
+});
+test('redact reveals seed once the game is over', () => {
+  const s = fresh(42, 5); s.over = { win: false, reason: 'x' };
+  eq(C.redact(s, 0).seed, s.seed);
+});
+test('sabotageAction: only the Traitor, costs an action, produces a rumor; human Traitor never auto-sabotages', () => {
+  const s = fresh(43, 5);
+  s.traitorHuman = true; s.rumors = []; s.sabotages = 0;
+  const other = (s.traitor + 1) % 5;
+  s.active = other; s.actionsLeft = 2;
+  ok(!C.sabotageAction(s).ok, 'non-traitor refused');
+  s.active = s.traitor; s.actionsLeft = 2;
+  const r = C.sabotageAction(s);
+  ok(r.ok); eq(s.actionsLeft, 1); eq(s.rumors.length, 1);
+  ok(s.rumors[0].includes(s.traitor), 'rumor includes traitor');
+  // human traitor never auto-sabotages at end of turn
+  for (let seed = 1; seed <= 30; seed++) {
+    const g = fresh(1000 + seed, 4); g.traitorHuman = true; g.rumors = []; g.sabotages = 0;
+    g.active = g.traitor; g.actionsLeft = 2; g.shadowDeck = g.shadowDeck.filter(x => x !== 'hand');
+    C.endTurn(g);
+    eq(g.sabotages, 0, 'no auto sabotage seed ' + seed);
+  }
+});
+test('mage sees next shadow card, others do not', () => {
+  const s = C.createGame({ seed: 5, partySize: 7 });
+  ok(C.nextShadowPeek(s) !== null);
+  const t = C.clone(s); t.party.forEach(p => { if (p.id === 'mage') p.alive = false; });
+  eq(C.nextShadowPeek(t), null);
+});
+
+// ---------- bot simulation: balance check ----------
+function bot(s) {
+  let guard = 0;
+  while (!s.over && s.actionsLeft > 0 && guard++ < 12) {
+    const idx = s.active, p = s.party[idx];
+    // accuse the only defender present in every rumor, once there are 2+ rumors
+    if (s.rumors.length >= 2 && !s.traitorRevealed) {
+      const sus = C.suspicion(s);
+      const top = sus.map((n, i) => [n, i]).filter(([n, i]) => n === s.rumors.length && i !== idx && s.party[i].alive && !s.party[i].exiled);
+      if (top.length === 1 && C.accuse(s, top[0][1]).ok) continue;
+    }
+    if (p.hp <= 1 && p.loc === C.CITADEL && C.rest(s).ok) continue;
+    const here = p.loc >= 0 ? s.quests[p.loc] : null;
+    const best = (slot) => {
+      const q = s.quests[slot]; if (!q) return null;
+      const vals = p.hand.map(c => [C.contributeValue(s, idx, [c.id]), c.id]).sort((a, b) => b[0] - a[0]).slice(0, 3);
+      return { slot, ids: vals.map(v => v[1]), gain: vals.reduce((n, v) => n + v[0], 0), left: q.needed - q.progress, timer: q.timer };
+    };
+    if (here && p.hand.length) {
+      const b = best(p.loc);
+      if (b && C.contribute(s, b.ids).ok) continue;
+    }
+    if (p.hand.length >= 2) {
+      let pick = null;
+      s.quests.forEach((q, slot) => {
+        if (!q) return; const b = best(slot);
+        const score = (Math.min(b.gain, b.left) / b.left) * 3 - b.timer * 0.2;
+        if (!pick || score > pick.score) pick = { slot, score };
+      });
+      if (pick && pick.slot !== p.loc && C.move(s, pick.slot).ok) continue;
+    }
+    if (C.drawAction(s).ok) continue;
+    break;
+  }
+  if (!s.over) C.endTurn(s);
+}
+function simulate(difficulty, n, size) {
+  let wins = 0, turns = 0, reasons = {};
+  for (let seed = 1; seed <= n; seed++) {
+    const s = C.createGame({ seed, partySize: size, difficulty });
+    let guard = 0;
+    while (!s.over && guard++ < 400) bot(s);
+    if (!s.over) { reasons['stuck'] = (reasons['stuck'] || 0) + 1; continue; }
+    if (s.over.win) wins++;
+    reasons[s.over.reason.split('.')[0]] = (reasons[s.over.reason.split('.')[0]] || 0) + 1;
+    turns += s.turn;
+  }
+  return { wins, rate: (100 * wins / n).toFixed(0) + '%', avgTurns: (turns / n).toFixed(0), reasons };
+}
+
+test('bot never gets stuck (no infinite game)', () => {
+  const r = simulate('normal', 60, 5);
+  ok(!r.reasons.stuck, 'stuck games: ' + r.reasons.stuck);
+});
+
+out.insertAdjacentHTML('beforeend', `<h2>${passed} passed, ${failed} failed</h2>`);
+out.insertAdjacentHTML('beforeend', '<h2>Balance (greedy bot, 5 defenders, 200 games each)</h2>');
+const lines = ['easy', 'normal', 'hard'].map(d => { const r = simulate(d, 200, 5); return `${d.padEnd(7)} win ${r.rate.padStart(4)}  avg turns ${r.avgTurns}  ${JSON.stringify(r.reasons)}`; });
+out.insertAdjacentHTML('beforeend', `<pre id="balance">${lines.join('\n')}</pre>`);
+out.insertAdjacentHTML('beforeend', '<h2>Win rate by party size (greedy bot, 150 games each)</h2>');
+const grid = [3, 4, 5, 6, 7].map(n => `${n} defenders: ` + ['easy', 'normal', 'hard'].map(d => `${d} ${simulate(d, 150, n).rate.padStart(4)}`).join('   ')).join('\n');
+out.insertAdjacentHTML('beforeend', `<pre id="sizes">${grid}</pre>`);
+document.title = `${passed} passed, ${failed} failed`;
+</script>
+</body>
+</html>

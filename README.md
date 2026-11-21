@@ -1,18 +1,135 @@
 # Shadows of the Citadel
 
-Original cooperative board game with a hidden traitor.
+An original cooperative board game of siege and betrayal, playable in any browser. The Citadel is
+surrounded, quests are racing their deadlines, and one of your defenders is secretly working for the enemy.
 
-## Latest Versions
-
-- `shadows_of_the_citadel_alive.html` — defender idle animations (breathing, blink, glow) + panel weather
-- `shadows_of_the_citadel.html` — earlier playable version (requires imagine_images folder)
-
-The full self-contained version with embedded painted board, quest cards, and portraits is ~2.2 MB and is available in the chat history as `shadows_of_the_citadel_full.html`. Upload that file via the GitHub web UI for the complete art package.
-
-## How to Play
-
-1. Open any of the HTML files in a browser.
-2. Progression of Evil then Heroic Action.
-3. Complete quests to place white swords. Win with majority white before 7 black or 12 siege.
+**Play:** open `index.html`. No build step, no server, no dependencies.
 
 All art and rules are original.
+
+## How to play
+
+Seat **7 white swords** on the Round Wheel before the shadows win.
+
+You lose if any of these happen:
+- **6 black swords** are seated (seven white can no longer be reached)
+- **12 siege engines** surround the Citadel
+- every defender falls
+
+### A turn
+1. **Shadow.** A Shadow card is drawn and resolved first: siege engines, an arrow, a whisper that steals a card, the Gate opening, dread that shortens every quest deadline, or treachery from within.
+2. **Heroic.** The active defender takes **2 actions** (3 for the Cavalry Captain):
+   - **Move** to a quest or back to the Citadel
+   - **Play cards** on a quest (up to 3). A card matching the quest's favoured suit is worth 2, any other card 1
+   - **Gather supplies**: draw 2 cards (hand limit 7)
+   - **Rest** at the Citadel: everyone there heals 1
+   - **Give a card** to a defender standing in the same place
+   - **Accuse** a defender (needs at least one sabotage rumor)
+
+   **Hint** suggests a sensible next step at any time.
+3. **End turn.** Play passes to the next defender. After the last one, a new round starts and every quest deadline drops by 1.
+
+### Quests
+Seven quests are on the board at a time, drawn from twelve. Each costs progress and has a deadline in rounds.
+- **Complete** it: a white sword is seated, the siege falls back by 1, and every defender draws a card.
+- **Miss the deadline**: a black sword is seated.
+
+### The Traitor
+One defender secretly serves the enemy. They sabotage quests and open the gates, and every sabotage produces a **rumor**:
+a short list of defenders seen nearby. **The Traitor is always on the list.** Compare rumors to narrow the field, then accuse.
+- **Right:** the Traitor is exiled, a white sword is seated, and the sabotage stops.
+- **Wrong:** the accused loses their next turn and a black sword is seated.
+
+### Defenders
+| Defender | Ability |
+|---|---|
+| Captain Veyra | +1 progress whenever she plays cards on a quest |
+| Lord Harren | draws 3 cards when gathering supplies |
+| Scout Elira | moving costs no action |
+| The Berserker | Blade cards add +1 progress each |
+| Mage-Knight | glimpses the next Shadow card |
+| Cavalry Captain | takes 3 actions each turn |
+| Shield-Bearer | 4 health instead of 3 |
+
+Choose 3 to 7 defenders and Easy, Normal or Hard when starting. Quest costs scale with party size, so every size
+plays at a similar difficulty. Your game autosaves in the browser, and your win/loss record is kept per difficulty.
+
+### Keys
+`1`-`7` select a card, `P` or `Enter` play, `G` gather, `R` rest, `H` hint, `E` end turn.
+
+### Sound and motion
+All sound is synthesized in the browser (bells, thuds, a Shadow swell, thunder, a wind bed that follows the weather),
+so there are no audio files to license. Use the **Sound** button to mute. Animations (token travel, swords seating
+on the wheel, siege engines igniting, the Shadow card reveal, wound flashes, screen shake) are driven by what changed
+in the game state, so they look the same offline and online. Both respect the system "reduce motion" setting.
+
+### Online play
+Up to 7 people can play, each controlling one defender. Empty seats are played by bots, and a player who disconnects
+is replaced by a bot.
+
+1. **Host:** Play online, Host a game, Create lobby, Invite a friend. Send the invite code to your friend.
+2. **Friend:** Play online, Join, paste the code, Create reply code, send the reply code back.
+3. **Host:** paste the reply code, Connect. Repeat for each friend, then Start game.
+
+There is no game server: the codes carry a WebRTC handshake and the game then runs directly between the browsers.
+The host's browser runs the rules and checks every move, and each player is sent only their own view, so the Traitor's
+identity and the decks are never sent to anyone else. If the Traitor is a person, they get a **Sabotage** action and
+choose when to strike; if it is a bot, it sabotages on its own.
+
+Things to know:
+- **Privacy:** players' browsers can see each other's IP address (that is how peer-to-peer works). Unless you tick
+  **Same network only**, the handshake also asks a public STUN server (`stun.l.google.com`) for your public address.
+- Some strict networks (corporate firewalls, some mobile carriers) block peer-to-peer connections; there is no relay server.
+- The host must stay in the game. If the host leaves, the game ends for everyone. There is no reconnecting after a drop.
+- Hands are visible to all players (the active defender's hand is always shown).
+
+### Seeds and challenge links
+Every game has a seed. Enter one on the setup screen, or share a link like `index.html#seed=42&size=4&diff=hard`
+(the end screen has a **Copy challenge link** button). The same seed deals the same game, so friends can compare runs.
+
+## Project layout
+
+| Path | What it is |
+|---|---|
+| `index.html`, `css/style.css` | the page and its styling |
+| `js/engine.js` | all the rules: pure logic, no DOM, seedable and saveable |
+| `js/ui.js` | renders engine state onto the painted board, sound/animation effects, lobby screens |
+| `js/sound.js` | synthesized sound effects and ambience (Web Audio, no audio files) |
+| `js/net.js` | WebRTC transport and compact invite/reply codes |
+| `js/online.js` | host (authoritative, runs bots) and guest sessions, no DOM |
+| `assets/` | board, quest cards, card back and defender portraits |
+| `tests.html` | engine unit tests plus a bot balance simulation |
+| `tests-online.html` | host/guest protocol tests over a real WebRTC loopback connection |
+| `js/selftest.js` | UI smoke test, loaded only with `#selftest` in the URL |
+| `tools/` | test runners and the one-off asset extraction script |
+| `legacy/` | the three earlier prototype versions, kept for reference |
+
+Add `#seed=42` to the URL to start a reproducible game (useful for bug reports).
+
+## Tests
+
+Both suites run headless in Edge or Chrome, with no Node or server:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File tools\run-tests.ps1            # rules + balance simulation
+powershell -ExecutionPolicy Bypass -File tools\run-ui-test.ps1          # clicks through the real UI
+powershell -ExecutionPolicy Bypass -File tools\run-online-test.ps1      # host/guest protocol over real WebRTC
+powershell -ExecutionPolicy Bypass -File tools\run-online-ui-test.ps1   # two real tabs: lobby, codes, play to the end
+powershell -ExecutionPolicy Bypass -File tools\run-online-ui-test.ps1 -GuestTraitor   # same, with a human Traitor
+```
+
+`tests.html` also opens in a normal browser. The online tests drive Edge or Chrome over the DevTools protocol because
+WebRTC needs real clocks.
+
+The balance simulation plays seeded games with a simple greedy bot, per difficulty and party size. Win rates:
+
+| Defenders | Easy | Normal | Hard |
+|---|---|---|---|
+| 3 | 81% | 27% | 11% |
+| 4 | 81% | 33% | 16% |
+| 5 | 88% | 43% | 26% |
+| 6 | 94% | 49% | 16% |
+| 7 | 94% | 40% | 20% |
+
+The bot is a simple greedy player: it never passes cards and only accuses when one defender is named in every
+rumor. A thoughtful human should do better. Tune `DIFFICULTY` and `SIZE_NEED` in `js/engine.js` and rerun `tools\run-tests.ps1`.

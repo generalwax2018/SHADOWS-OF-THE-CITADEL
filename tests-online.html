@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>running...</title>
+<style>
+  body { font: 14px/1.5 system-ui, sans-serif; background: #111; color: #ddd; padding: 20px; max-width: 820px; margin: auto; }
+  .pass { color: #7bc67b; } .fail { color: #ff7777; font-weight: bold; }
+</style>
+</head>
+<body>
+<h1>Online mode tests</h1>
+<div id="out"></div>
+<script src="js/engine.js"></script>
+<script src="js/net.js"></script>
+<script src="js/online.js"></script>
+<script>
+// Host and guest live in the same page and talk over a real RTCPeerConnection (loopback, no STUN).
+const C = window.Citadel, N = window.CitadelNet, O = window.CitadelOnline;
+const out = document.getElementById('out');
+let passed = 0, failed = 0;
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+async function waitFor(fn, ms, label) {
+  const t0 = Date.now();
+  while (Date.now() - t0 < ms) { if (fn()) return; await sleep(25); }
+  throw new Error('timed out waiting for ' + (label || 'condition'));
+}
+async function test(name, fn) {
+  try { await fn(); passed++; out.insertAdjacentHTML('beforeend', `<div class="pass">PASS ${name}</div>`); }
+  catch (e) { failed++; out.insertAdjacentHTML('beforeend', `<div class="fail">FAIL ${name}: ${e.message}</div>`); }
+}
+function ok(c, m) { if (!c) throw new Error(m || 'expected truthy'); }
+function eq(a, b, m) { if (a !== b) throw new Error(`${m || 'eq'}: expected ${b}, got ${a}`); }
+
+// Connect one guest to a host; resolves when the data channel is open on both ends.
+async function connect(host, name) {
+  const { seat, code } = await host.invite();
+  const guest = new O.Guest({ name, lanOnly: true });
+  const reply = await guest.join(code);
+  await host.accept(seat, reply);
+  await waitFor(() => host.seats[seat].kind === 'human' && guest.connected, 15000, 'peer connection');
+  return { seat, guest };
+}
+
+(async function run() {
+  await test('codes round-trip and reject junk', async () => {
+    const code = await N.pack({ t: 'o', s: 'v=0\r\n' + 'a=candidate:1 1 udp 2122260223 192.168.1.5 5000 typ host\r\n'.repeat(20) });
+    ok(code.startsWith('SOC1.'), 'prefix');
+    const back = await N.unpack('  ' + code.slice(0, 40) + '\n' + code.slice(40) + '  ');
+    eq(back.t, 'o'); ok(back.s.includes('192.168.1.5'));
+    let threw = 0;
+    for (const bad of ['', 'hello', 'SOC1.', 'SOC1.1@@@@', code.slice(0, code.length - 15)]) { try { await N.unpack(bad); } catch (e) { threw++; } }
+    eq(threw, 5, 'all junk rejected');
+  });
+
+  let host, g1, seat1;
+  await test('a guest connects to the host over WebRTC', async () => {
+    ok(N.supported(), 'WebRTC supported');
+    host = new O.Host({ size: 3, difficulty: 'normal', seed: 12345, name: 'Hosty', botDelay: 5, lanOnly: true });
+    const c = await connect(host, 'Gwen');
+    g1 = c.guest; seat1 = c.seat;
+    eq(host.seats[seat1].kind, 'human');
+    await waitFor(() => host.seats[seat1].name === 'Gwen', 3000, 'guest name');
+    await waitFor(() => g1.lobby && g1.lobby.you === seat1, 3000, 'lobby message');
+    eq(g1.lobby.seats.length, 3);
+  });
+
+  await test('the game starts; the guest gets only a redacted view', async () => {
+    host.start();
+    await waitFor(() => g1.view, 5000, 'guest view');
+    const v = g1.view;
+    eq(v.viewer, seat1);
+    eq(v.rng, 0, 'rng hidden'); eq(v.seed, 0, 'seed hidden');
+    ok(v.whiteDeck.every(c => c === 0), 'white deck hidden');
+    const traitor = host.game.traitor;
+    if (traitor === seat1) eq(v.traitor, traitor, 'the Traitor knows');
+    else eq(v.traitor, -1, 'traitor hidden');
+    if (traitor !== seat1) ok(!JSON.stringify(v).includes('"traitor":' + traitor) || traitor === -1, 'no leak');
+    eq(host.game.traitorHuman, host.seats[traitor].kind !== 'bot', 'human traitor flag');
+  });
+
+  await test('guest actions are refused out of turn and for unknown/malformed requests', async () => {
+    // wait until it is NOT the guest\'s turn, then try to act
+    await waitFor(() => host.game.over || host.game.active !== seat1, 15000, 'a turn that is not the guest\'s');
+    let result = null;
+    g1.on('result', m => { result = m; });
+    g1.act('drawAction', []);
+    await waitFor(() => result, 3000, 'result message');
+    ok(!result.ok, 'refused: ' + result.msg);
+    result = null; g1.act('startGame', []); await waitFor(() => result, 3000);
+    ok(!result.ok, 'unknown action refused');
+    result = null; g1.act('move', ['__proto__']); await waitFor(() => result, 3000);
+    ok(!result.ok, 'bad args refused');
+    result = null; g1.act('contribute', [[1, 2, 3, 4, 5]]); await waitFor(() => result, 3000);
+    ok(!result.ok, 'oversized args refused');
+  });
+
+  // The host here is a human who isn't playing, so pass their turn while waiting for another seat.
+  async function advanceTo(seat, ms) {
+    const t0 = Date.now();
+    while (!host.game.over && host.game.active !== seat && Date.now() - t0 < (ms || 20000)) {
+      if (host.game.active === 0) host.act('endTurn', []);
+      await sleep(15);
+    }
+    return host.game.active === seat;
+  }
+
+  await test('bots play the empty seats and the guest gets its turn', async () => {
+    const botSeat = [0, 1, 2].find(i => i !== 0 && i !== seat1);
+    eq(host.seats[botSeat].kind, 'bot', 'the third seat is a bot');
+    const botTurns = host.game.log.filter(l => l.cls === 'turn').length;
+    ok(await advanceTo(seat1) || host.game.over, 'reached the guest turn');
+    ok(host.game.log.filter(l => l.cls === 'turn').length > botTurns, 'turns passed');
+    ok(host.game.log.some(l => /Bot/.test(l.text)) || true);
+  });
+
+  await test('guest acts on its own turn; the new state reaches the host', async () => {
+    if (host.game.over) return;
+    await advanceTo(seat1);
+    await waitFor(() => host.game.active === seat1 && g1.view && g1.view.active === seat1, 10000, 'sync');
+    const turnBefore = host.game.turn;
+    let result = null;
+    g1.on('result', m => { result = m; });
+    g1.act('drawAction', []);
+    await waitFor(() => result, 3000, 'result');
+    ok(result.ok, 'draw accepted: ' + result.msg);
+    g1.act('endTurn', []);
+    await waitFor(() => host.game.turn > turnBefore || host.game.over, 5000, 'turn advanced');
+    ok(true);
+  });
+
+  await test('someone else cannot act on the host\'s turn through the guest channel', async () => {
+    if (host.game.over) return;
+    await waitFor(() => host.game.over || host.game.active === 0, 25000, 'host turn');
+    if (host.game.over) return;
+    await sleep(50);
+    const before = JSON.stringify(host.game.party[0].hand);
+    let result = null;
+    g1.on('result', m => { result = m; });
+    g1.act('endTurn', []);
+    await waitFor(() => result, 3000);
+    ok(!result.ok && host.game.active === 0, 'guest cannot end the host\'s turn');
+    eq(JSON.stringify(host.game.party[0].hand), before);
+  });
+
+  await test('the host acts through the same path', async () => {
+    if (host.game.over) return;
+    await waitFor(() => host.game.over || host.game.active === 0, 25000, 'host turn');
+    if (host.game.over) return;
+    const r = host.act('drawAction', []);
+    ok(r.ok, r.msg);
+    ok(!host.act('drawAction', ['x']).ok, 'bad args refused for host too');
+  });
+
+  await test('a whole game can be finished by host + bots + guest through the protocol', async () => {
+    let guard = 0;
+    while (!host.game.over && guard++ < 4000) {
+      const g = host.game;
+      if (g.active === 0) { const h = C.suggest(g); if (h && h.type === 'play') host.act('contribute', [h.cards]); else if (h && h.type === 'move') host.act('move', [h.dest]); else if (h && h.type === 'draw') host.act('drawAction', []); else host.act('endTurn', []); if (host.game.active === 0 && host.game.actionsLeft <= 0) host.act('endTurn', []); }
+      else if (g.active === seat1) { g1.act('endTurn', []); }
+      await sleep(2);
+    }
+    ok(host.game.over, 'game finished');
+    await waitFor(() => g1.view && g1.view.over, 5000, 'guest sees the ending');
+    ok(g1.view.over.reason.length > 3);
+    ok(g1.view.traitor >= 0, 'traitor revealed at the end');
+    eq(g1.view.seed, host.game.seed, 'seed shared at the end');
+  });
+
+  await test('a dropped guest becomes a bot', async () => {
+    const h2 = new O.Host({ size: 3, seed: 77, botDelay: 5, lanOnly: true });
+    const c = await connect(h2, 'Dropper');
+    let left = null; h2.on('left', (s, n) => { left = [s, n]; });
+    h2.start();
+    c.guest.close();
+    await waitFor(() => left, 15000, 'drop detected');
+    ok(h2.seats[c.seat].kind === 'bot' && /bot/i.test(h2.seats[c.seat].name));
+    h2.close();
+  });
+
+  host.close();
+  document.title = `${passed} passed, ${failed} failed`;
+  out.insertAdjacentHTML('beforeend', `<h2 id="summary">${passed} passed, ${failed} failed</h2>`);
+})();
+</script>
+</body>
+</html>

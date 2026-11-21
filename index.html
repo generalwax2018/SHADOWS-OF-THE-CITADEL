@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shadows of the Citadel</title>
+<meta name="description" content="A cooperative board game of siege and betrayal. Hold the Citadel, finish the quests, and unmask the Traitor.">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <h1>Shadows of the Citadel</h1>
+  <div class="status" aria-live="polite">
+    <span class="chip" title="Rounds played">Round <strong id="round">1</strong></span>
+    <span class="chip white" title="Seven white swords wins">White <strong id="white">0</strong>/7</span>
+    <span class="chip black" title="Six black swords loses">Black <strong id="black">0</strong>/6</span>
+    <span class="chip siege" title="Twelve siege engines loses">Siege <strong id="siege">0</strong>/12</span>
+    <span class="chip weather" id="weatherLabel">Clear</span>
+    <span class="chip net" id="netChip" hidden></span>
+  </div>
+  <div class="topbtns">
+    <button id="btnSound" class="ghost" aria-pressed="true">Sound: on</button>
+    <button id="btnRules" class="ghost">Rules</button>
+    <button id="btnNew" class="ghost">New game</button>
+  </div>
+</header>
+
+<main class="layout">
+  <section class="stage-wrap" aria-label="Game board">
+    <div class="stage" id="stage">
+      <img class="board-img" src="assets/board.jpg" alt="The Citadel war table" draggable="false">
+      <div class="overlay" id="overlay">
+        <div class="siege-row" id="siegeRow" aria-hidden="true"></div>
+        <div class="wheel" id="wheel" aria-hidden="true"></div>
+        <div class="deck-label shadow-deck" id="shadowDeck" title="Shadow deck: one card is drawn at the start of every turn"></div>
+        <div class="citadel-spot" id="citadelSpot" role="button" tabindex="0" aria-label="The Citadel">
+          <span class="spot-name">The Citadel</span>
+          <div class="tokens" id="tokens-citadel"></div>
+        </div>
+        <div class="slots" id="slots"></div>
+        <canvas class="weather-canvas" id="weatherCanvas"></canvas>
+        <div class="dim" id="dim"></div>
+      </div>
+      <div class="hurt" id="hurt" aria-hidden="true"></div>
+      <div class="banner" id="banner" aria-live="polite"></div>
+      <div class="shadow-reveal" id="shadowReveal" aria-hidden="true"></div>
+      <div class="toasts" id="toasts" aria-hidden="true"></div>
+    </div>
+  </section>
+
+  <aside class="side">
+    <section class="panel active-panel" id="activePanel"></section>
+
+    <section class="panel quest-list-panel">
+      <h2>Quests <small>tap for details</small></h2>
+      <div id="questList"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Hand <small id="handHint"></small></h2>
+      <div class="hand" id="hand"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Actions <small id="actionsLeft"></small></h2>
+      <div class="actions" id="actions"></div>
+      <p class="msg" id="msg" role="status"></p>
+    </section>
+
+    <section class="panel">
+      <h2>Defenders</h2>
+      <div class="party" id="party"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Rumors <small>who was near each sabotage</small></h2>
+      <div id="rumors" class="rumors"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Chronicle</h2>
+      <div class="log" id="log" aria-live="polite"></div>
+    </section>
+  </aside>
+</main>
+
+<!-- quest detail / modals -->
+<div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle" hidden>
+  <div class="modal-card" id="modalCard"></div>
+</div>
+
+<script src="js/engine.js"></script>
+<script src="js/sound.js"></script>
+<script src="js/net.js"></script>
+<script src="js/online.js"></script>
+<script src="js/ui.js"></script>
+</body>
+</html>
