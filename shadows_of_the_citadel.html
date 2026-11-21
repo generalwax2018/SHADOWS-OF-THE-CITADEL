@@ -1,1 +1,399 @@
-PLACEHOLDER
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Shadows of the Citadel</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: #0c0a08 url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect fill="%230c0a08" width="100" height="100"/><path d="M0 50 Q25 40 50 50 T100 50" stroke="%231a1510" fill="none"/></svg>');
+    color: #e8e0d0;
+    font-family: 'Segoe UI', Georgia, serif;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  header {
+    background: linear-gradient(180deg, #1a1510 0%, #0c0a08 100%);
+    padding: 12px 24px;
+    border-bottom: 3px solid #c9a66b;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  }
+  h1 { margin: 0; font-size: 24px; letter-spacing: 6px; font-weight: 300; color: #c9a66b; text-shadow: 0 2px 4px #000; }
+  .status-bar { display: flex; gap: 24px; font-size: 14px; }
+  .status-bar span strong { color: #c9a66b; font-size: 16px; }
+  .main { flex: 1; display: flex; overflow: hidden; }
+  .board-area {
+    flex: 1;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: radial-gradient(circle at center, #1a1510 0%, #0c0a08 70%);
+  }
+  .board {
+    max-width: 100%;
+    max-height: 52vh;
+    border: 8px solid #2a2218;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.8), inset 0 0 20px rgba(0,0,0,0.3);
+    border-radius: 4px;
+  }
+  .quest-slots {
+    display: flex;
+    gap: 12px;
+    margin-top: 16px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .quest-slot {
+    width: 100px;
+    height: 145px;
+    background: #1a1510;
+    border: 3px solid #3a2f22;
+    border-radius: 6px;
+    overflow: hidden;
+    cursor: pointer;
+    position: relative;
+    transition: transform 0.15s, border-color 0.15s;
+  }
+  .quest-slot:hover { transform: translateY(-4px); }
+  .quest-slot.active { border-color: #c9a66b; box-shadow: 0 0 12px rgba(201,166,107,0.5); }
+  .quest-slot img { width: 100%; height: 100%; object-fit: cover; }
+  .quest-slot .label {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    background: rgba(0,0,0,0.75);
+    font-size: 10px; text-align: center; padding: 4px 2px; color: #ddd;
+  }
+  .side-panel {
+    width: 380px;
+    background: #16120e;
+    border-left: 2px solid #3a2f22;
+    display: flex;
+    flex-direction: column;
+    padding: 16px;
+    overflow-y: auto;
+  }
+  .panel {
+    background: #1e1a16;
+    border: 1px solid #3a2f22;
+    padding: 14px;
+    margin-bottom: 14px;
+    border-radius: 6px;
+  }
+  .panel h3 { margin: 0 0 10px; font-size: 15px; color: #c9a66b; letter-spacing: 1px; }
+  button {
+    background: linear-gradient(#3a2f22, #2a2218);
+    color: #e8e0d0;
+    border: 1px solid #c9a66b;
+    padding: 8px 14px;
+    margin: 4px 4px 4px 0;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 13px;
+    border-radius: 3px;
+  }
+  button:hover:not(:disabled) { background: #4a3f32; }
+  button:disabled { opacity: 0.35; cursor: not-allowed; }
+  .hand {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    min-height: 90px;
+  }
+  .card {
+    width: 62px;
+    height: 90px;
+    border: 2px solid #c9a66b;
+    border-radius: 4px;
+    cursor: pointer;
+    background-size: cover;
+    background-position: center;
+    position: relative;
+    transition: transform 0.1s;
+  }
+  .card:hover { transform: translateY(-6px); z-index: 2; }
+  .card.white { border-color: #eee; }
+  .card.black { border-color: #555; }
+  .log {
+    height: 180px;
+    overflow-y: auto;
+    background: #0a0806;
+    padding: 10px;
+    font-size: 12.5px;
+    border: 1px solid #333;
+    border-radius: 4px;
+  }
+  .log div { margin-bottom: 4px; }
+  .win { color: #7bc67b; }
+  .lose { color: #d46a6a; }
+  .chars-row { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chars-row img {
+    width: 48px; height: 72px; object-fit: cover;
+    border: 2px solid #444; border-radius: 3px;
+  }
+  .modal {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.8);
+    display: none; align-items: center; justify-content: center; z-index: 100;
+  }
+  .modal.show { display: flex; }
+  .modal-content {
+    background: #1a1510; padding: 28px; border: 3px solid #c9a66b;
+    max-width: 440px; text-align: center; border-radius: 8px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.9);
+  }
+  .modal-content h2 { margin-top: 0; color: #c9a66b; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>SHADOWS OF THE CITADEL</h1>
+  <div class="status-bar">
+    <span>Turn <strong id="turn">1</strong></span>
+    <span>White Swords <strong id="white">0</strong></span>
+    <span>Black Swords <strong id="black">0</strong></span>
+    <span>Siege <strong id="siege">0</strong>/12</span>
+    <span id="phase">Progression</span>
+  </div>
+</header>
+
+<div class="main">
+  <div class="board-area">
+    <img class="board" src="imagine_images/0Zp8T.jpg" alt="Board">
+    <div class="quest-slots" id="questSlots"></div>
+  </div>
+
+  <div class="side-panel">
+    <div class="panel">
+      <h3>Your Hand</h3>
+      <div class="hand" id="hand"></div>
+    </div>
+
+    <div class="panel">
+      <h3>Actions</h3>
+      <button id="btnProgress" onclick="doProgress()">Progression of Evil</button>
+      <button id="btnMove" onclick="doHeroic('move')" disabled>Move to Quest</button>
+      <button id="btnPlay" onclick="doHeroic('play')" disabled>Play Cards</button>
+      <button id="btnDraw" onclick="doHeroic('draw')" disabled>Draw 2 White</button>
+      <button id="btnAccuse" onclick="doHeroic('accuse')" disabled>Accuse Traitor</button>
+      <button id="btnEnd" onclick="endTurn()" disabled>End Turn</button>
+    </div>
+
+    <div class="panel">
+      <h3>Defenders</h3>
+      <div class="chars-row">
+        <img src="imagine_images/xBm2w.jpg" title="Captain Veyra">
+        <img src="imagine_images/zsXKh.jpg" title="Lord Harren">
+        <img src="imagine_images/45Xqf.jpg" title="Scout Elira">
+        <img src="imagine_images/kS2Ll.jpg" title="Berserker">
+        <img src="imagine_images/cv3xs.jpg" title="Mage-Knight">
+        <img src="imagine_images/1cjrF.jpg" title="Cavalry Captain">
+        <img src="imagine_images/dgugm.jpg" title="Shield-Bearer">
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3>Log</h3>
+      <div class="log" id="log"></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="modal">
+  <div class="modal-content">
+    <h2 id="modalTitle"></h2>
+    <p id="modalText"></p>
+    <button onclick="closeModal()">Continue</button>
+  </div>
+</div>
+
+<script>
+const CARD_BACK = "imagine_images/1qzyG.jpg";
+
+const quests = [
+  { name: "Hold the Pass", progress: 0, needed: 4, img: "imagine_images/Kkick.jpg" },
+  { name: "Recover the Banner", progress: 0, needed: 5, img: "imagine_images/a60lI.jpg" },
+  { name: "Seek the Relic Blade", progress: 0, needed: 6, img: "imagine_images/URIju.jpg" },
+  { name: "Defend the Walls", progress: 0, needed: 4, img: "imagine_images/Bjhf5.jpg" },
+  { name: "Scout the Sea", progress: 0, needed: 3, img: null },
+  { name: "Mountain Watch", progress: 0, needed: 3, img: null }
+];
+
+let state = {
+  turn: 1,
+  whiteSwords: 0,
+  blackSwords: 0,
+  siege: 0,
+  phase: "progress",
+  hand: [],
+  isTraitor: Math.random() < 0.25,
+  traitorRevealed: false,
+  gameOver: false,
+  selectedQuest: null
+};
+
+function log(msg, cls = "") {
+  const el = document.getElementById("log");
+  const d = document.createElement("div");
+  if (cls) d.className = cls;
+  d.textContent = msg;
+  el.appendChild(d);
+  el.scrollTop = el.scrollHeight;
+}
+
+function updateUI() {
+  document.getElementById("turn").textContent = state.turn;
+  document.getElementById("white").textContent = state.whiteSwords;
+  document.getElementById("black").textContent = state.blackSwords;
+  document.getElementById("siege").textContent = state.siege;
+  document.getElementById("phase").textContent = state.phase === "progress" ? "Progression" : "Heroic Action";
+
+  document.getElementById("btnProgress").disabled = state.phase !== "progress" || state.gameOver;
+  document.getElementById("btnMove").disabled = state.phase !== "heroic" || state.gameOver;
+  document.getElementById("btnPlay").disabled = state.phase !== "heroic" || state.gameOver;
+  document.getElementById("btnDraw").disabled = state.phase !== "heroic" || state.gameOver;
+  document.getElementById("btnAccuse").disabled = state.phase !== "heroic" || state.gameOver || (state.whiteSwords + state.blackSwords) < 6;
+  document.getElementById("btnEnd").disabled = state.phase !== "heroic" || state.gameOver;
+
+  const handEl = document.getElementById("hand");
+  handEl.innerHTML = "";
+  state.hand.forEach((c, i) => {
+    const div = document.createElement("div");
+    div.className = "card " + (c.type === "white" ? "white" : "black");
+    div.style.backgroundImage = `url('${CARD_BACK}')`;
+    div.title = c.type === "white" ? "White Card" : "Black Card";
+    handEl.appendChild(div);
+  });
+
+  const slots = document.getElementById("questSlots");
+  slots.innerHTML = "";
+  quests.forEach((q, i) => {
+    const div = document.createElement("div");
+    div.className = "quest-slot" + (state.selectedQuest === i ? " active" : "");
+    if (q.img) {
+      div.innerHTML = `<img src="${q.img}" alt="${q.name}"><div class="label">${q.name}<br>${q.progress}/${q.needed}</div>`;
+    } else {
+      div.innerHTML = `<div class="label" style="position:static;background:none;height:100%;display:flex;align-items:center;justify-content:center;">${q.name}<br>${q.progress}/${q.needed}</div>`;
+    }
+    div.onclick = () => { state.selectedQuest = i; updateUI(); };
+    slots.appendChild(div);
+  });
+}
+
+function checkEnd() {
+  if (state.whiteSwords >= 12 && state.whiteSwords > state.blackSwords) {
+    endGame(true, "The Citadel holds! Majority white swords.");
+  } else if (state.blackSwords >= 7) {
+    endGame(false, "Too many black swords. The shadows win.");
+  } else if (state.siege >= 12) {
+    endGame(false, "12 siege engines surround the Citadel.");
+  }
+}
+
+function endGame(win, msg) {
+  state.gameOver = true;
+  log(msg, win ? "win" : "lose");
+  if (!win && state.isTraitor && !state.traitorRevealed) log("The Traitor succeeds.", "lose");
+  showModal(win ? "VICTORY" : "DEFEAT", msg);
+  updateUI();
+}
+
+function showModal(title, text) {
+  document.getElementById("modalTitle").textContent = title;
+  document.getElementById("modalText").textContent = text;
+  document.getElementById("modal").classList.add("show");
+}
+function closeModal() {
+  document.getElementById("modal").classList.remove("show");
+}
+
+function doProgress() {
+  if (state.phase !== "progress" || state.gameOver) return;
+  const roll = Math.floor(Math.random() * 3);
+  if (roll === 0) {
+    state.siege++;
+    log(`Progression of Evil: +1 Siege Engine (${state.siege})`);
+  } else if (roll === 1) {
+    state.blackSwords++;
+    log(`Progression of Evil: +1 Black Sword (${state.blackSwords})`);
+  } else {
+    state.hand.push({ type: "black", name: "Black" });
+    log("Progression of Evil: Drew a Black card.");
+  }
+  state.phase = "heroic";
+  updateUI();
+  checkEnd();
+}
+
+function doHeroic(action) {
+  if (state.phase !== "heroic" || state.gameOver) return;
+
+  if (action === "move") {
+    if (state.selectedQuest === null) {
+      log("Select a quest first.");
+      return;
+    }
+    log(`Moved to ${quests[state.selectedQuest].name}.`);
+  } else if (action === "play") {
+    const whiteCards = state.hand.filter(c => c.type === "white").length;
+    if (whiteCards < 2) {
+      log("Need at least 2 white cards to advance a quest.");
+      return;
+    }
+    if (state.selectedQuest === null) {
+      log("Select a quest to advance.");
+      return;
+    }
+    let removed = 0;
+    state.hand = state.hand.filter(c => {
+      if (c.type === "white" && removed < 2) { removed++; return false; }
+      return true;
+    });
+    const q = quests[state.selectedQuest];
+    q.progress += 2;
+    log(`Played cards on ${q.name}. Progress: ${q.progress}/${q.needed}`);
+    if (q.progress >= q.needed) {
+      state.whiteSwords++;
+      q.progress = 0;
+      log(`${q.name} completed! +1 White Sword.`, "win");
+    }
+  } else if (action === "draw") {
+    state.hand.push({ type: "white", name: "White" });
+    state.hand.push({ type: "white", name: "White" });
+    log("Drew 2 White cards.");
+  } else if (action === "accuse") {
+    if (state.isTraitor && !state.traitorRevealed && Math.random() > 0.5) {
+      state.whiteSwords += 2;
+      state.traitorRevealed = true;
+      log("Correct accusation! Traitor revealed. +2 White Swords.", "win");
+    } else {
+      state.blackSwords++;
+      log("False accusation. +1 Black Sword.", "lose");
+    }
+  }
+
+  state.phase = "progress";
+  state.turn++;
+  updateUI();
+  checkEnd();
+}
+
+function endTurn() {
+  doHeroic("skip");
+}
+
+// Start
+state.hand = [
+  {type:"white",name:"White"},{type:"white",name:"White"},
+  {type:"white",name:"White"},{type:"white",name:"White"},
+  {type:"white",name:"White"}
+];
+log("The shadows gather. Defend the Citadel. One among you may be a Traitor.");
+updateUI();
+</script>
+</body>
+</html>
