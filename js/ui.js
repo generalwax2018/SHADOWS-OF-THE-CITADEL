@@ -14,10 +14,9 @@
 
   // ---------- settings (remembered in this browser) ----------
   const SETTINGS_KEY = 'citadel-settings-v1';
-  const SET_DEFAULTS = { volume: 0.7, ambience: true, motion: 'system', text: 'normal', auto: true };
+  const SET_DEFAULTS = { volume: 0.7, ambience: true, motion: 'system', text: 'normal', autoView: false };
   const SET = Object.assign({}, SET_DEFAULTS);
   try { Object.assign(SET, JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}); } catch (e) { /* storage blocked or damaged: use defaults */ }
-  try { if (!localStorage.getItem(SETTINGS_KEY) && localStorage.getItem('citadel-auto-exp') === '0') SET.auto = false; } catch (e) { /* ignore */ }
   function saveSettings() { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(SET)); } catch (e) { /* ignore */ } }
   function applySettings() {
     Snd.setVolume(SET.volume);
@@ -30,7 +29,7 @@
     html.classList.toggle('large-text', SET.text === 'large');
     if (window.CitadelFx && window.CitadelFx.setReduced) window.CitadelFx.setReduced(reduced);
     if (window.CitadelAmbience) window.CitadelAmbience.setReduced(reduced);
-    ui.autoExp = !!SET.auto;
+    ui.autoExp = !!SET.autoView;
   }
   // ---------- crash guard ----------
   // An unexpected error must never leave the player with a frozen board and no explanation. The game state is autosaved
@@ -548,13 +547,13 @@
     frame.insertAdjacentHTML('beforeend',
       `<div class="exp-top"><h3>${esc(def.name)}</h3><span class="mc-chip suit-${def.suit}">${ICONS[def.suit]} ${C.SUIT_LABEL[def.suit]} counts double</span><span class="mc-chip mc-timer" data-r="timer">${HOURGLASS}<b></b></span></div>` +
       '<button type="button" class="exp-close ghost" aria-label="Return to the map">Return to the map (Esc)</button>' +
-      '<label class="exp-opt"><input type="checkbox" id="autoExp"> Go to a mission automatically</label>' +
+      '<label class="exp-opt"><input type="checkbox" id="autoExp"> Open the mission view automatically</label>' +
       `<div class="exp-bottom"><div class="obj">${esc(def.text)}</div><div class="who"></div>` +
       '<div class="meter"><span data-r="prog"></span><div class="bar"><i></i></div><span data-r="left"></span></div></div>');
     root.appendChild(frame);
     const opt = frame.querySelector('#autoExp');
     opt.checked = ui.autoExp;
-    opt.addEventListener('change', () => { SET.auto = opt.checked; saveSettings(); applySettings(); });
+    opt.addEventListener('change', () => { SET.autoView = opt.checked; saveSettings(); applySettings(); });
     frame.querySelector('.exp-close').addEventListener('click', () => closeExpedition());
     root.onclick = e => { if (e.target === root) closeExpedition(); };
     mw.exp = { slot, qid: q.id, live: lv, frame, root };
@@ -1239,7 +1238,7 @@
       '<div class="set-row"><label for="setVol">Volume</label><input type="range" id="setVol" min="0" max="100" step="5"><output id="setVolOut"></output></div>' +
       '<h3>Motion</h3>' +
       '<div class="set-row"><label for="setMotion">Animation</label><select id="setMotion" class="seed-input"><option value="system">Follow my device</option><option value="reduce">Reduce motion</option><option value="full">Full motion</option></select></div>' +
-      '<label class="check"><input type="checkbox" id="setAuto"> Go to a mission automatically (expedition view)</label>' +
+      '<label class="check"><input type="checkbox" id="setAuto"> Open the mission view automatically (expedition view)</label>' +
       '<h3>Text</h3>' +
       '<div class="set-row"><label for="setText">Side panel text</label><select id="setText" class="seed-input"><option value="normal">Normal</option><option value="large">Large</option></select></div>' +
       '<div class="modal-actions"><button type="button" class="ghost" data-a="tour">Guided tour</button><button type="button" class="ghost" data-a="reset">Reset to defaults</button><button type="button" class="primary" data-a="done">Done</button></div>');
@@ -1248,7 +1247,7 @@
     const sync = () => {
       q('#setSfx').checked = !Snd.isMuted(); q('#setAmb').checked = SET.ambience;
       q('#setVol').value = Math.round(SET.volume * 100); q('#setVolOut').textContent = Math.round(SET.volume * 100) + '%';
-      q('#setMotion').value = SET.motion; q('#setAuto').checked = SET.auto; q('#setText').value = SET.text;
+      q('#setMotion').value = SET.motion; q('#setAuto').checked = SET.autoView; q('#setText').value = SET.text;
     };
     sync();
     const change = () => { saveSettings(); applySettings(); };
@@ -1257,7 +1256,7 @@
     q('#setVol').oninput = e => { SET.volume = e.target.value / 100; q('#setVolOut').textContent = e.target.value + '%'; change(); };
     q('#setVol').onchange = () => Snd.play('white');          // a sample so you can hear the level
     q('#setMotion').onchange = e => { SET.motion = e.target.value; change(); };
-    q('#setAuto').onchange = e => { SET.auto = e.target.checked; change(); };
+    q('#setAuto').onchange = e => { SET.autoView = e.target.checked; change(); };
     q('#setText').onchange = e => { SET.text = e.target.value; change(); };
     q('[data-a="reset"]').onclick = () => { Object.assign(SET, SET_DEFAULTS); Snd.setMuted(false); syncSoundButton(); change(); sync(); };
     q('[data-a="done"]').onclick = closeModal;

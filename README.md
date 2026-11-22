@@ -137,7 +137,7 @@ The scenes change as you make progress, so you can see how a mission is going:
 
 Click a window (or choose **Mission view** on a card) and it pulls open into a large **expedition view** with the mission's
 title, progress, deadline and the defenders on it. It opens by itself when a defender goes on a mission and closes
-when they come home. Press **Esc** or **Return to the map** to leave, and untick **Go to a mission automatically** to
+when they come home. Press **Esc** or **Return to the map** to leave, and tick **Open the mission view automatically** in Settings (off by default) to
 turn that off. When a mission ends while you are in it, you see **COMPLETE** or **FAILED** before returning to the map.
 
 Each mission costs progress and has a deadline in rounds.

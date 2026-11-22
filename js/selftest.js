@@ -156,12 +156,13 @@
       check('the Motion setting can force full motion', !html.classList.contains('reduce-motion') && html.classList.contains('full-motion') && !window.CitadelFx.isReduced());
       fire(mb.querySelector('#setText'), 'large');
       check('large text is applied', html.classList.contains('large-text'));
-      fire(mb.querySelector('#setAuto'), false);
-      check('going to a mission automatically can be switched off', S.auto === false);
+      check('the mission view does not open by itself by default', S.autoView === false);
+      fire(mb.querySelector('#setAuto'), true);
+      check('opening the mission view automatically can be switched on', S.autoView === true);
       let stored = null; try { stored = JSON.parse(localStorage.getItem('citadel-settings-v1')); } catch (e) { /* ignore */ }
-      check('settings are remembered in the browser', !!stored && Math.abs(stored.volume - 0.3) < 0.01 && stored.text === 'large' && stored.auto === false && stored.ambience === false);
+      check('settings are remembered in the browser', !!stored && Math.abs(stored.volume - 0.3) < 0.01 && stored.text === 'large' && stored.autoView === true && stored.ambience === false);
       click(btnByText(mb, /Reset to defaults/));
-      check('Reset to defaults restores everything', Math.abs(Snd.getVolume() - 0.7) < 0.01 && Snd.isAmbienceOn() && !html.classList.contains('large-text') && S.auto === true && S.motion === 'system');
+      check('Reset to defaults restores everything', Math.abs(Snd.getVolume() - 0.7) < 0.01 && Snd.isAmbienceOn() && !html.classList.contains('large-text') && S.autoView === false && S.motion === 'system');
       click(btnByText($('modalCard'), /^Done/));
       check('Done closes the settings panel', $('modal').hidden);
     }
