@@ -545,3 +545,18 @@ label.check { display: flex; gap: 8px; align-items: center; margin: 12px 0 0; fo
 .exp-top h3 { flex: 1 0 100%; }
 .exp-close { top: 1.4cqw; right: 1.6cqw; }
 .exp-opt { left: auto; right: 1.6cqw; top: 6cqw; }
+
+/* ======================= tall paintings (assets/art/<id>.jpg, 2:3) ======================= */
+/* on mission cards the painting fills the card, with the title and objective over it */
+.mc-svg.bleed > g[clip-path] { display: none; }
+.mc-svg.bleed .f-win { display: none; }
+.mc-svg.bleed .f-top { fill: url(#fade-top); opacity: 1; height: 150px; }
+.mc-svg.bleed .f-bot { fill: url(#fade-bot); opacity: 1; y: 392px; height: 194px; }
+.mc-svg .art-bleed { transform-box: fill-box; transform-origin: 50% 40%; animation: kenburns 18s ease-in-out infinite alternate; }
+/* in the wide board windows and the expedition view the camera pans slowly down the painting */
+.lv-art { position: absolute; inset: 0; background-size: cover; background-position: 50% 8%; animation: lvpan 42s ease-in-out infinite alternate; }
+@keyframes lvpan { from { background-position: 50% 6%; } to { background-position: 50% 94%; } }
+.lv-bleed > svg { opacity: 0; }
+.lv-glow { position: absolute; inset: 0; pointer-events: none; mix-blend-mode: screen; opacity: calc(.1 + var(--p, 0) * .8);
+  background: radial-gradient(circle at 50% 60%, rgba(255,184,96,.5), transparent 62%); animation: glowp 3.2s ease-in-out infinite; transition: opacity 1.2s ease; }
+.lv-bleed::after { content: ''; position: absolute; inset: 0; pointer-events: none; box-shadow: inset 0 0 9cqw rgba(0,0,0,.75); z-index: 1; }

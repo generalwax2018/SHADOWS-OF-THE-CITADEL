@@ -4,15 +4,27 @@ Eight of the twelve missions are drawn in code. Four already have full painted c
 (`pass`, `banner`, `blade`, `walls`). This guide is for rendering the other eight with an image
 generator such as Grok, then dropping the files in. No code changes are needed.
 
+## Status
+
+| Mission | Art |
+|---|---|
+| Mend the Gates, Rescue the Scouts, Guard the Archives, Scout the Sea, Feed the Forge | painted (`assets/art/`) |
+| Hold the Pass, Recover the Banner, Seek the Relic Blade, Defend the Walls | painted full cards (`assets/quest-*.jpg`) |
+| Mountain Watch, Light the Beacons, Renew the Oath | still generated: these three need paintings |
+
 ## Two ways to supply a painting
 
 | | **A. Art only (recommended)** | **B. Full card** |
 |---|---|---|
 | File | `assets/art/<id>.jpg` | `assets/card/<id>.jpg` |
 | What it is | The illustration only: no text, no frame | A complete card with frame, title and objective painted in, like the four existing cards |
-| Shape | Square (1:1), for example 1024x1024 | Portrait 2:3, for example 784x1168 or 1024x1536 |
+| Shape | **Portrait 2:3** (best), for example 1024x1536 or 671x1000. Square (1:1) also works | Portrait 2:3, for example 784x1168 or 1024x1536 |
 | What the game adds | The gold frame, title, objective text, deadline, suit and progress bar | Only the deadline, suit and progress chips |
 | Risk | None. Text is always spelled correctly | Image generators often misspell title text |
+
+How a portrait painting is shown: on the mission card it fills the whole card behind the title and objective, like the
+four painted cards. In the board's mission windows and the expedition view the camera pans slowly down the painting.
+A square painting is placed inside the gold frame instead.
 
 If both files exist for a mission, the full card (B) covers the art-only version (A).
 Use JPG, aim for under 400 KB each so the page stays fast, and keep file names in lower case.
@@ -44,9 +56,10 @@ Recurring details from the existing cards, useful to keep the set consistent: th
 deep blue cloaks and a mountain or castle emblem on their shields; the enemy is a faceless mass of shadow soldiers
 with red torches; skies are heavy and overcast; the palette is mostly black, slate blue and bronze with orange fire.
 
-## Prompts for art only (option A, square 1:1)
+## Prompts for art only (option A, portrait 2:3)
 
-Paste the style block first, then one of these.
+Paste the style block first, then one of these. Ask for a **vertical (portrait, 2:3) image**, and keep the title area at the
+top and the lower fifth fairly calm, because the card's title and objective sit over the top and bottom of the painting.
 
 **sea** `assets/art/sea.jpg`
 > A storm-black sea at night. A fleet of black-sailed warships with tiny lanterns advances on a rocky coast, seen from

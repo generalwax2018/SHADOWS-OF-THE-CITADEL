@@ -90,6 +90,8 @@
     <linearGradient id="hall" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0a0706"/><stop offset="1" stop-color="#2a1a10"/></linearGradient>
     <linearGradient id="haze" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c9a98a" stop-opacity="0"/><stop offset="1" stop-color="#c9a98a" stop-opacity=".38"/></linearGradient>
     <linearGradient id="fade-b" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".78"/></linearGradient>
+    <linearGradient id="fade-top" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#080605" stop-opacity=".94"/><stop offset=".6" stop-color="#080605" stop-opacity=".55"/><stop offset="1" stop-color="#080605" stop-opacity="0"/></linearGradient>
+    <linearGradient id="fade-bot" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#080605" stop-opacity=".96"/><stop offset=".7" stop-color="#080605" stop-opacity=".7"/><stop offset="1" stop-color="#080605" stop-opacity="0"/></linearGradient>
     <linearGradient id="shaft" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe6b0" stop-opacity=".5"/><stop offset="1" stop-color="#ffe6b0" stop-opacity="0"/></linearGradient>
     <filter id="blur1" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation="1.2"/></filter>
     <filter id="blur3" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation="3"/></filter>
@@ -310,8 +312,8 @@
     const corner = (x, y, r) => `<g transform="translate(${x} ${y}) rotate(${r})"><path d="M0 0h26M0 0v26M8 8h14M8 8v14" stroke="#b4924f" stroke-width="3" fill="none"/><circle cx="4" cy="4" r="3" fill="#d8b46a"/></g>`;
     return '<rect x="6" y="6" width="388" height="588" rx="14" fill="none" stroke="#8a6f3a" stroke-width="5"/>' +
       '<rect x="14" y="14" width="372" height="572" rx="9" fill="none" stroke="#5a4626" stroke-width="2"/>' +
-      '<rect x="14" y="14" width="372" height="98" fill="#0d0a07" opacity=".82"/><rect x="14" y="432" width="372" height="154" fill="#16120d" opacity=".97"/>' +
-      '<rect x="28" y="112" width="344" height="320" fill="none" stroke="#7a6034" stroke-width="2.5"/>' +
+      '<rect class="f-top" x="14" y="14" width="372" height="98" fill="#0d0a07" opacity=".82"/><rect class="f-bot" x="14" y="432" width="372" height="154" fill="#16120d" opacity=".97"/>' +
+      '<rect class="f-win" x="28" y="112" width="344" height="320" fill="none" stroke="#7a6034" stroke-width="2.5"/>' +
       corner(14, 14, 0) + corner(386, 14, 90) + corner(386, 586, 180) + corner(14, 586, 270) +
       `<text x="200" y="${ty}" text-anchor="middle" font-family="Georgia, serif" font-size="30" font-weight="700" letter-spacing="2" fill="#efe4c8">${title}</text>` +
       '<text x="200" y="462" text-anchor="middle" font-family="Georgia, serif" font-size="13" letter-spacing="3" fill="#c9a66b">OBJECTIVE</text>' +
@@ -337,18 +339,21 @@
   // ---------- painting drop-ins ----------
   // A missing <image> inside an SVG paints the browser's broken-image icon, so a layer is only added once
   // the file is known to load. Results are cached, so each file is requested at most once.
+  // A probe resolves to false (no such file) or {w, h} (its pixel size). A bare `true` counts as a square image.
   const probes = {};
   function probe(url) {
     if (!probes[url]) {
       probes[url] = new Promise(resolve => {
         const i = new Image();
-        i.onload = () => resolve(true);
+        i.onload = () => resolve({ w: i.naturalWidth, h: i.naturalHeight });
         i.onerror = () => resolve(false);
         i.src = url;
       });
     }
     return probes[url];
   }
+  // Tall paintings (2:3 and similar) fill the whole card behind the title and objective, like the painted cards.
+  const isPortrait = r => !!r && typeof r === 'object' && r.w > 0 && r.h / r.w > 1.15;
 
   // Call after a card's HTML is in the document. Adds assets/art/<id>.jpg inside the frame and/or
   // assets/card/<id>.jpg over the whole card, when those files exist.
@@ -365,8 +370,14 @@
       return im;
     };
     const artUrl = assets + 'art/' + def.id + '.jpg', cardUrl = assets + 'card/' + def.id + '.jpg';
-    probe(artUrl).then(ok => {
-      if (!ok || !svg.isConnected || svg.querySelector('.art-photo')) return;
+    probe(artUrl).then(r => {
+      if (!r || !svg.isConnected || svg.querySelector('.art-photo, .art-bleed')) return;
+      if (isPortrait(r)) {
+        // full-bleed: the painting fills the card and the frame's title and objective sit over it
+        svg.classList.add('bleed');
+        svg.insertBefore(make('art-bleed', artUrl, 0, 0, 400, 600), svg.querySelector('clipPath'));
+        return;
+      }
       const g = svg.querySelector('g[clip-path]');
       g.insertBefore(make('art-photo', artUrl, 28, 112, 344, 320), g.querySelector('.art-vignette'));
     });
@@ -429,8 +440,20 @@
     if (!def.img) {
       // optional painting drop-in (assets/art/<id>.jpg), shown over the generated scene
       const url = assets + 'art/' + def.id + '.jpg';
-      probe(url).then(ok => {
-        if (!ok || !el.isConnected || el.querySelector('.art-photo')) return;
+      probe(url).then(r => {
+        if (!r || !el.isConnected || el.querySelector('.art-photo') || box.querySelector('.lv-art')) return;
+        if (isPortrait(r)) {
+          // a tall painting: the camera pans slowly down it, with a glow that grows with progress
+          const art = root.document.createElement('div');
+          art.className = 'lv-art';
+          art.style.backgroundImage = `url('${url}')`;
+          const glow = root.document.createElement('div');
+          glow.className = 'lv-glow';
+          box.insertBefore(art, el);
+          box.insertBefore(glow, box.querySelector('canvas'));
+          box.classList.add('lv-bleed');
+          return;
+        }
         const NS = 'http://www.w3.org/2000/svg', im = root.document.createElementNS(NS, 'image');
         im.setAttribute('class', 'art-photo'); im.setAttribute('href', url);
         im.setAttribute('x', 28); im.setAttribute('y', 112); im.setAttribute('width', 344); im.setAttribute('height', 320);
@@ -447,6 +470,7 @@
       ctx = ctx || {};
       const p = q ? Math.max(0, Math.min(1, q.progress / q.needed)) : 0;
       applyProgress(el, p);
+      box.style.setProperty('--p', p.toFixed(3));
       box.classList.toggle('urgent', !!q && q.timer <= 2);
       if (fx) { fx.k = INTENSITY[def.id] ? INTENSITY[def.id](p) : 1; fx.setStorm(ctx.storm || 0); }
       return p;

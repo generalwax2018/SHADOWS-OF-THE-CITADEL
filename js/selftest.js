@@ -279,7 +279,10 @@
     // painting drop-ins: nothing is added for missing files, layers appear when files exist
     {
       await new Promise(r => setTimeout(r, 400));
-      check('missing paintings add no layers (no broken-image icons)', !document.querySelector('.mc-svg:not(.lv-painted) image'));
+      // every painting layer on the page must point at a file that really loads (a missing file would draw a broken-image icon)
+      const hrefs = [...document.querySelectorAll('.mc-svg:not(.lv-painted) image')].map(n => n.getAttribute('href'));
+      const loadOk = await Promise.all(hrefs.map(h => new Promise(r => { const i = new Image(); i.onload = () => r(true); i.onerror = () => r(false); i.src = h; })));
+      check('painting layers only exist for files that load (no broken-image icons)', loadOk.every(Boolean), hrefs.filter((h, i) => !loadOk[i]).join(','));
       const M = window.CitadelMissions;
       M._probes['assets/art/sea.jpg'] = Promise.resolve(true);
       M._probes['assets/card/sea.jpg'] = Promise.resolve(true);
@@ -291,6 +294,21 @@
       check('an art-only painting is placed inside the frame window', !!host.querySelector('g[clip-path] image.art-photo'));
       check('a full-card painting covers the whole card', !!host.querySelector('svg > image.card-photo'));
       host.remove();
+
+      // tall paintings: full-bleed on cards, panning in the live windows
+      M._probes['assets/art/mountains.jpg'] = Promise.resolve({ w: 671, h: 1000 });
+      const hostT = document.createElement('div');
+      hostT.innerHTML = M.art(C.questDef('mountains'));
+      document.body.appendChild(hostT);
+      M.attach(hostT, C.questDef('mountains'));
+      const lvT = M.live(C.questDef('mountains'));
+      document.body.appendChild(lvT.el);
+      await new Promise(r => setTimeout(r, 80));
+      check('a tall painting fills the whole card behind the title', !!hostT.querySelector('svg.bleed > image.art-bleed') && !hostT.querySelector('image.art-photo'));
+      check('a tall painting pans slowly in the live window', lvT.el.classList.contains('lv-bleed') && !!lvT.el.querySelector('.lv-art') && !!lvT.el.querySelector('.lv-glow'));
+      lvT.destroy(); lvT.el.remove(); hostT.remove();
+      delete M._probes['assets/art/mountains.jpg'];
+
       const hostP = document.createElement('div');
       hostP.innerHTML = M.art(C.questDef('pass'));
       M.attach(hostP, C.questDef('pass'));

@@ -96,8 +96,9 @@ standing there. Select a card to open it full size, or to move there.
 - Four missions use the painted cards. The other eight have generated illustrations that move: beacon fires flicker,
   the sea rolls under a storm, the forge throws sparks, fog drifts through the pines, banners sway.
 - **Replace the generated art with paintings:** drop an image at `assets/art/<id>.jpg` (illustration only, the game adds
-  the frame and text) or `assets/card/<id>.jpg` (a complete card) and it is used automatically. See
-  [docs/MISSION_ART.md](docs/MISSION_ART.md) for the file names and ready-made prompts.
+  the frame and text; tall 2:3 paintings work best) or `assets/card/<id>.jpg` (a complete card) and it is used
+  automatically. Five missions already have paintings this way (gates, scouts, archives, sea, forge). See
+  [docs/MISSION_ART.md](docs/MISSION_ART.md) for the file names, what is still missing and ready-made prompts.
 - Cards animate as the game changes: a **+N** floats up when you make progress, a card pulses red when it has two
   rounds or fewer left, it is stamped **COMPLETE** and flips away when finished, and it is stamped **FAILED**, greys out
   and drops when its deadline passes. A new mission then flips into the empty place.
