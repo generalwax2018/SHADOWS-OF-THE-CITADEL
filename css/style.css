@@ -240,8 +240,10 @@ button.danger { border-color: var(--bad); }
 .kv b { color: var(--ink); font-weight: 600; }
 
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation: none !important; transition: none !important; }
+  html:not(.full-motion) *, html:not(.full-motion) *::before, html:not(.full-motion) *::after { animation: none !important; transition: none !important; }
 }
+/* the Motion setting can also force it on */
+html.reduce-motion *, html.reduce-motion *::before, html.reduce-motion *::after { animation: none !important; transition: none !important; }
 
 /* Phone: frame text is unreadable at this size; the Quests list below the board replaces it. */
 @media (max-width: 760px) { .slot .qname, .slot .qmeta { display: none !important; } }
@@ -598,3 +600,28 @@ label.check { display: flex; gap: 8px; align-items: center; margin: 12px 0 0; fo
 /* the turn banner moves up so it never sits under a chronicle card */
 .banner { top: 30%; }
 @media (max-width: 760px) { .chron-icon { width: 11cqw; height: 11cqw; padding: 2.3cqw; } .chron-body b { font-size: 4.4cqw; } .chron-body p { font-size: 2.7cqw; } }
+
+/* ======================= settings ======================= */
+.set-row { display: grid; grid-template-columns: 9em 1fr auto; gap: 10px; align-items: center; margin: 10px 0; font-size: 14px; color: var(--muted); }
+.set-row input[type=range] { width: 100%; accent-color: var(--gold); }
+.set-row output { min-width: 3em; text-align: right; color: var(--ink); font-variant-numeric: tabular-nums; }
+.set-row select { grid-column: 2 / 4; }
+html.large-text .side { zoom: 1.15; }
+
+/* ======================= guided tour ======================= */
+.tour { position: fixed; inset: 0; z-index: 90; }
+.tour-spot { position: fixed; display: none; border-radius: 10px; border: 2px solid var(--gold-hi); box-shadow: 0 0 0 9999px rgba(3,2,1,.76), 0 0 24px rgba(230,201,143,.6); pointer-events: none; transition: left .3s ease, top .3s ease, width .3s ease, height .3s ease; }
+.tour-card { position: fixed; padding: 16px 18px; background: #181310; border: 2px solid var(--gold); border-radius: 10px; box-shadow: 0 18px 50px #000; max-width: calc(100vw - 24px); }
+.tour-card small { color: var(--muted); letter-spacing: .12em; text-transform: uppercase; font-size: 11px; }
+.tour-card h3 { margin: 4px 0 6px; font: 600 20px Georgia, serif; color: var(--gold-hi); letter-spacing: 0; text-transform: none; }
+.tour-card p { margin: 0 0 12px; font-size: 14px; line-height: 1.5; color: #d8cfba; }
+.tour-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+
+/* ======================= daily challenge ======================= */
+.daily { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; padding: 10px 12px; border: 1px solid var(--edge); border-radius: 8px; background: var(--panel-2); }
+.daily b { display: block; color: var(--gold-hi); font-size: 14px; }
+.daily small { color: var(--muted); font-size: 12.5px; }
+.hint-line { margin: 6px 0 0; font-size: 12px; color: var(--muted); }
+
+/* ======================= crash guard ======================= */
+.crash { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 120; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: center; max-width: calc(100vw - 24px); padding: 10px 14px; background: #2a1210; border: 1px solid #d0584a; border-radius: 8px; box-shadow: 0 10px 30px #000; font-size: 13.5px; color: #ffd8d0; }

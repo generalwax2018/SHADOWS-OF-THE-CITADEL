@@ -110,6 +110,61 @@
       check('white counter bumps', $('white').classList.contains('bump') && C.count(H.game, 'white') === sw0 + 1);
     }
 
+    // guided tour
+    {
+      const TT = H.tour;
+      localStorage.removeItem('citadel-tour-done');
+      H.startTour();
+      const tr = document.querySelector('.tour');
+      check('the guided tour opens with a spotlight and a first step', !!tr && H.tour.on && /1 of 7/.test(tr.textContent) && /siege/i.test(tr.textContent));
+      const nextBtn = () => document.querySelector('.tour [data-t="next"]');
+      const spotArea = () => { const r = document.querySelector('.tour-spot').getBoundingClientRect(); return r.width * r.height; };
+      check('the first step highlights the board', spotArea() > 20000);
+      click(nextBtn());
+      check('Next moves to the missions step and highlights the mission strip', H.tour.i === 1 && /Missions/.test(document.querySelector('.tour-card h3').textContent) && spotArea() > 5000);
+      click(document.querySelector('.tour [data-t="back"]'));
+      check('Back returns to the previous step', H.tour.i === 0);
+      for (let i = 0; i < 6; i++) click(nextBtn());
+      check('the last step is centered with no spotlight and a Start playing button', H.tour.i === 6 && getComputedStyle(document.querySelector('.tour-spot')).display === 'none' && /Start playing/.test(nextBtn().textContent));
+      click(nextBtn());
+      check('finishing closes the tour and remembers it', !document.querySelector('.tour') && !H.tour.on && localStorage.getItem('citadel-tour-done') === '1');
+      H.startTour();
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      check('Escape skips the tour', !document.querySelector('.tour') && !H.tour.on);
+      // every tour step lands on something that exists and is visible
+      let ok = true; const bad = [];
+      H.startTour();
+      for (let i = 0; i < 7; i++) { const t = H.tour; const r = document.querySelector('.tour-spot'); const c = document.querySelector('.tour-card').getBoundingClientRect(); if (c.width < 100 || c.left < 0 || c.right > window.innerWidth + 1) { ok = false; bad.push(i); } if (i < 6) click(nextBtn()); }
+      check('every tour card fits inside the window', ok, bad.join(','));
+      H.endTour();
+    }
+    // settings panel
+    {
+      const S = H.settings, Snd = window.CitadelSound, html = document.documentElement;
+      click($('btnSettings'));
+      const mb = $('modalCard');
+      check('the Settings button opens the settings panel', !$('modal').hidden && !!mb.querySelector('#setVol') && !!mb.querySelector('#setMotion'));
+      const fire = (n, v) => { if (typeof v === 'boolean') n.checked = v; else n.value = v; n.dispatchEvent(new Event(n.type === 'range' ? 'input' : 'change', { bubbles: true })); };
+      fire(mb.querySelector('#setVol'), '30');
+      check('the volume slider changes the sound volume', Math.abs(Snd.getVolume() - 0.3) < 0.01, String(Snd.getVolume()));
+      check('the volume label follows the slider', mb.querySelector('#setVolOut').textContent === '30%');
+      fire(mb.querySelector('#setAmb'), false);
+      check('ambience can be switched off', Snd.isAmbienceOn() === false);
+      fire(mb.querySelector('#setMotion'), 'reduce');
+      check('the Motion setting can force reduced motion', html.classList.contains('reduce-motion') && window.CitadelFx.isReduced());
+      fire(mb.querySelector('#setMotion'), 'full');
+      check('the Motion setting can force full motion', !html.classList.contains('reduce-motion') && html.classList.contains('full-motion') && !window.CitadelFx.isReduced());
+      fire(mb.querySelector('#setText'), 'large');
+      check('large text is applied', html.classList.contains('large-text'));
+      fire(mb.querySelector('#setAuto'), false);
+      check('going to a mission automatically can be switched off', S.auto === false);
+      let stored = null; try { stored = JSON.parse(localStorage.getItem('citadel-settings-v1')); } catch (e) { /* ignore */ }
+      check('settings are remembered in the browser', !!stored && Math.abs(stored.volume - 0.3) < 0.01 && stored.text === 'large' && stored.auto === false && stored.ambience === false);
+      click(btnByText(mb, /Reset to defaults/));
+      check('Reset to defaults restores everything', Math.abs(Snd.getVolume() - 0.7) < 0.01 && Snd.isAmbienceOn() && !html.classList.contains('large-text') && S.auto === true && S.motion === 'system');
+      click(btnByText($('modalCard'), /^Done/));
+      check('Done closes the settings panel', $('modal').hidden);
+    }
     // hint
     document.querySelectorAll('#hand .card.selected').forEach(click);
     const hintBtn = btnByText($('actions'), /^Hint/);
@@ -424,11 +479,49 @@
     }
     check('forced playthrough reaches an ending without crashing', H.game.over || guard >= 400);
     check('end modal shows a result', !$('modal').hidden && /Victory|Defeat/.test($('modalCard').textContent));
+    // daily challenge and end-of-game highlights
+    {
+      const D = H.daily;
+      localStorage.removeItem('citadel-daily-v1');
+      check('the daily key is a date and its seed is the date digits', /^\d{4}-\d{2}-\d{2}$/.test(D.dayKey()) && D.dailySeed() === Number(D.dayKey().replace(/-/g, '')));
+      click($('btnNew'));
+      const dbtn = document.querySelector('#modalCard [data-a="daily"]');
+      check('the setup dialog offers the daily challenge', !!dbtn && /Daily challenge/.test($('modalCard').textContent) && /Not played yet/.test($('modalCard').textContent));
+      click(dbtn);
+      const dg = H.game;
+      check('the daily game uses the date seed, 5 defenders, Normal', dg.daily === D.dayKey() && dg.seed === D.dailySeed() && dg.party.length === 5 && dg.difficulty === 'normal');
+      const twin = C.createGame({ seed: D.dailySeed(), partySize: 5, difficulty: 'normal' });
+      check('everyone gets the same deal (identical defenders and Shadow deck)', JSON.stringify(dg.party.map(p => p.id)) === JSON.stringify(twin.party.map(p => p.id)) && dg.shadowDeck.join() === twin.shadowDeck.join() && dg.traitor === twin.traitor);
+      dg.stats.progress[0] = 9; dg.stats.done = 3; dg.over = { win: true, reason: 'test win' };
+      H.render();
+      const em = $('modalCard').textContent;
+      check('the end screen shows highlights from the run', /Highlights/.test(em) && /Missions completed/.test(em) && /Most progress/.test(em));
+      check('the end screen shows the daily streak and offers a shareable result', /Daily challenge/.test(em) && /streak/.test(em) && !!btnByText($('modalCard'), /Copy result/));
+      const day1 = D.readDaily()[D.dayKey()];
+      check('the daily win is recorded and counts toward a streak', !!day1 && day1.win === true && D.dailyStreak(D.readDaily()) >= 1);
+      // a later loss the same day must not erase the win
+      click(btnByText($('modalCard'), /Play again/)); click(document.querySelector('#modalCard [data-a="daily"]'));
+      const g2 = H.game; g2.over = { win: false, reason: 'test loss' }; H.render();
+      check('a later loss on the same day does not overwrite the win', D.readDaily()[D.dayKey()].win === true);
+      // a game saved before statistics existed still gets an end screen
+      const old = C.createGame({ seed: 5, partySize: 4 }); delete old.stats; old.over = { win: false, reason: 'old save' };
+      H.startFrom(old);
+      check('an old game without statistics still shows an end screen', /Defeat/.test($('modalCard').textContent) && !/Highlights/.test($('modalCard').textContent));
+    }
     let stats = null;
     try { stats = JSON.parse(localStorage.getItem('citadel-stats-v1')); } catch (e) { /* ignore */ }
     check('win/loss record saved after the game ends', !!stats && stats.played >= 1, stats ? stats.played + ' played' : '');
     check('end modal offers a challenge link', !!btnByText($('modalCard'), /Copy challenge link/));
-    check('no script errors', errors.length === 0, errors.join(' | '));
+    // the crash guard: an error is reported to the player and collected, and the game stays usable
+    {
+      const before = window.__citadelErrors.length;
+      H.reportError(new Error('test error'));
+      check('an unexpected error shows a friendly bar with Reload', !!document.querySelector('.crash') && !!btnByText(document.querySelector('.crash'), /Reload/) && window.__citadelErrors.length === before + 1);
+      click(btnByText(document.querySelector('.crash'), /Dismiss/));
+      check('the error bar can be dismissed', !document.querySelector('.crash'));
+      window.__citadelErrors.pop();           // that error was deliberate
+    }
+    check('no script errors', errors.length === 0 && window.__citadelErrors.length === 0, errors.concat(window.__citadelErrors).join(' | '));
 
     const bad = results.filter(r => !r.ok);
     const html = results.map(r => `<div class="${r.ok ? 'pass' : 'fail'}">${r.ok ? 'PASS' : 'FAIL'} ${r.name} ${r.extra}</div>`).join('');

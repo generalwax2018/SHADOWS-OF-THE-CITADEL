@@ -129,6 +129,7 @@
                      alive: true, exiled: false, stunned: false });
     });
     s.traitor = randInt(s, s.party.length);
+    s.stats = { progress: s.party.map(() => 0), done: 0, failed: 0, wounds: 0 };   // for the end-of-game highlights
 
     // white deck: 12 of each suit
     let cardId = 1;
@@ -227,6 +228,7 @@
     const p = s.party[idx];
     if (!p.alive) return;
     p.hp -= n;
+    if (s.stats) s.stats.wounds++;
     const nm = defenderDef(p.id).name;
     if (p.hp <= 0) {
       p.hp = 0; p.alive = false;
@@ -332,6 +334,7 @@
   function expireQuests(s) {
     s.quests.forEach((q, slot) => {
       if (q && q.timer <= 0 && !s.over) {
+        if (s.stats) s.stats.failed++;
         say(s, `${questDef(q.id).name} has failed! A black sword is seated.`, 'lose');
         s.party.forEach(p => { if (p.loc === slot) p.loc = CITADEL; });
         s.quests[slot] = null;
@@ -454,12 +457,14 @@
       s.whiteDiscard.push(p.hand.splice(k, 1)[0]);
     });
     quest.progress += gain;
+    if (s.stats) s.stats.progress[idx] += gain;
     spend(s, 1);
     const def = questDef(quest.id);
     say(s, `${defenderDef(p.id).name} advances ${def.name}: +${gain} (${Math.min(quest.progress, quest.needed)}/${quest.needed}).`, 'win');
 
     if (quest.progress >= quest.needed) {
       const slot = p.loc;
+      if (s.stats) s.stats.done++;
       say(s, `${def.name} is complete! A white sword is seated and the siege falls back.`, 'win');
       if (s.siege > 0) addSiege(s, -1);
       s.party.forEach(q => { if (q.loc === slot) q.loc = CITADEL; });

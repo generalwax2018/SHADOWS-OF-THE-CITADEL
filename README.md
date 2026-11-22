@@ -189,8 +189,17 @@ Things to know:
 - The host must stay in the game. If the host leaves, the game ends for everyone. There is no reconnecting after a drop.
 - Hands are visible to all players (the active defender's hand is always shown).
 
-### Seeds and challenge links
-Every game has a seed. Enter one on the setup screen, or share a link like `index.html#seed=42&size=4&diff=hard`
+### Daily challenge
+The setup screen has a **Daily challenge**: everyone gets the same game each calendar day (5 defenders, Normal), seeded
+from the date. Your best attempt per day and your streak are kept on this device, and the end screen has **Copy result**
+so you can compare with friends.
+
+### Settings and the guided tour
+The gear button opens **Settings**: master volume, sound effects, ambience, motion (follow the system, reduced or
+full), automatic expedition view, and text size. Settings are stored in your browser. **Replay guided tour** (in
+Settings or Rules) walks through the board in seven steps; it is offered once on your first game.
+
+### Seeds and challenge linksEvery game has a seed. Enter one on the setup screen, or share a link like `index.html#seed=42&size=4&diff=hard`
 (the end screen has a **Copy challenge link** button). The same seed deals the same game, so friends can compare runs.
 
 ## Project layout
@@ -218,7 +227,7 @@ Add `#seed=42` to the URL to start a reproducible game (useful for bug reports).
 
 ## Tests
 
-Both suites run headless in Edge or Chrome, with no Node or server:
+All suites run headless in Edge or Chrome, with no Node or server:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File tools\run-tests.ps1            # rules + balance simulation
@@ -243,6 +252,8 @@ The balance simulation plays seeded games with a simple greedy bot, per difficul
 
 The bot is a simple greedy player: it never passes cards and only accuses when one defender is named in every
 rumor. A thoughtful human should do better. Tune `DIFFICULTY` and `SIZE_NEED` in `js/engine.js` and rerun `tools\run-tests.ps1`.
+
+The same suites run on every push through GitHub Actions (.github/workflows/tests.yml). The end screen shows run highlights (most progress, missions completed or failed, wounds, sabotages), and an unexpected script error shows a Reload bar instead of failing silently.
 
 ## License and credits
 

@@ -6,12 +6,50 @@
   const $ = id => document.getElementById(id);
 
   const Snd = window.CitadelSound || { play() {}, unlock() {}, setAmbience() {}, setMuted() {}, isMuted: () => true, supported: () => false };
-  const reduced = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  let reduced = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);   // the Motion setting can change this
 
   let game = null;
   let online = null;          // { role: 'host'|'guest', seat, session, names } while playing online
   const ui = { selectedSlot: null, picked: [], shownLog: 0, setup: { size: 5, difficulty: 'normal' }, prev: null, endShown: false };
 
+  // ---------- settings (remembered in this browser) ----------
+  const SETTINGS_KEY = 'citadel-settings-v1';
+  const SET_DEFAULTS = { volume: 0.7, ambience: true, motion: 'system', text: 'normal', auto: true };
+  const SET = Object.assign({}, SET_DEFAULTS);
+  try { Object.assign(SET, JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}); } catch (e) { /* storage blocked or damaged: use defaults */ }
+  try { if (!localStorage.getItem(SETTINGS_KEY) && localStorage.getItem('citadel-auto-exp') === '0') SET.auto = false; } catch (e) { /* ignore */ }
+  function saveSettings() { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(SET)); } catch (e) { /* ignore */ } }
+  function applySettings() {
+    Snd.setVolume(SET.volume);
+    Snd.setAmbienceOn(SET.ambience);
+    const system = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    reduced = SET.motion === 'reduce' ? true : SET.motion === 'full' ? false : system;
+    const html = document.documentElement;
+    html.classList.toggle('reduce-motion', reduced);
+    html.classList.toggle('full-motion', SET.motion === 'full');
+    html.classList.toggle('large-text', SET.text === 'large');
+    if (window.CitadelFx && window.CitadelFx.setReduced) window.CitadelFx.setReduced(reduced);
+    ui.autoExp = !!SET.auto;
+  }
+  // ---------- crash guard ----------
+  // An unexpected error must never leave the player with a frozen board and no explanation. The game state is autosaved
+  // after every action, so a reload resumes where they were. Errors are also collected in window.__citadelErrors for tests.
+  window.__citadelErrors = [];
+  let crashShown = false;
+  function reportError(err) {
+    window.__citadelErrors.push(String(err && err.message || err));
+    try { console.error(err); } catch (e) { /* ignore */ }
+    if (crashShown) return;
+    crashShown = true;
+    const bar = el('div', 'crash', '<span>Something went wrong. Your game is saved. If the board looks wrong, reload to continue.</span>' +
+      '<button type="button" data-a="reload">Reload</button><button type="button" class="ghost" data-a="dismiss">Dismiss</button>');
+    bar.setAttribute('role', 'alert');
+    bar.querySelector('[data-a="reload"]').onclick = () => location.reload();
+    bar.querySelector('[data-a="dismiss"]').onclick = () => { bar.remove(); crashShown = false; };
+    document.body.appendChild(bar);
+  }
+  window.addEventListener('error', e => { if (e instanceof ErrorEvent) reportError(e.error || e.message); });
+  window.addEventListener('unhandledrejection', e => reportError(e.reason));
   // ---------- helpers ----------
   function el(tag, cls, html) {
     const e = document.createElement(tag);
@@ -217,6 +255,9 @@
 
   // ---------- rendering ----------
   function render() {
+    try { renderNow(); } catch (e) { reportError(e); }
+  }
+  function renderNow() {
     if (!game) return;
     const s = game;
     const before = captureTokens();
@@ -354,7 +395,6 @@
   // is standing on comes first, then the one being inspected, then the most urgent. Scenes change as progress is
   // made, and selecting a window pulls it open into the full expedition view.
   const mw = { wins: [], exp: null };
-  ui.autoExp = (() => { try { return localStorage.getItem('citadel-auto-exp') !== '0'; } catch (e) { return true; } })();
 
   function buildWindows() {
     const ov = $('overlay');
@@ -434,7 +474,7 @@
     root.appendChild(frame);
     const opt = frame.querySelector('#autoExp');
     opt.checked = ui.autoExp;
-    opt.addEventListener('change', () => { ui.autoExp = opt.checked; try { localStorage.setItem('citadel-auto-exp', ui.autoExp ? '1' : '0'); } catch (e) { /* ignore */ } });
+    opt.addEventListener('change', () => { SET.auto = opt.checked; saveSettings(); applySettings(); });
     frame.querySelector('.exp-close').addEventListener('click', () => closeExpedition());
     root.onclick = e => { if (e.target === root) closeExpedition(); };
     mw.exp = { slot, qid: q.id, live: lv, frame, root };
@@ -954,16 +994,79 @@
     return location.href.split('#')[0] + `#seed=${s.seed}&size=${s.party.length}&diff=${s.difficulty}`;
   }
 
+  // ---------- daily challenge: the same game for everyone, once a day ----------
+  // The seed comes from the date, so every player gets the identical deal and Shadow deck; only the choices differ.
+  const DAILY_KEY = 'citadel-daily-v1';
+  const dayKey = d => { d = d || new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+  const dailySeed = key => Number((key || dayKey()).replace(/-/g, ''));
+  function readDaily() { try { return JSON.parse(localStorage.getItem(DAILY_KEY)) || {}; } catch (e) { return {}; } }
+  function dailyStreak(results) {
+    const d = new Date();
+    let key = dayKey(d);
+    if (!(results[key] && results[key].win)) { d.setDate(d.getDate() - 1); key = dayKey(d); }   // today may not be played yet
+    let n = 0;
+    while (results[key] && results[key].win) { n++; d.setDate(d.getDate() - 1); key = dayKey(d); }
+    return n;
+  }
+  function recordDaily(s) {
+    if (!s.daily || s.dailyRecorded || !s.over) return;
+    s.dailyRecorded = true;
+    const all = readDaily(), prev = all[s.daily];
+    const res = { win: !!s.over.win, rounds: s.round, white: C.count(s, 'white'), black: C.count(s, 'black'), siege: s.siege };
+    // keep the best attempt of the day: a win beats a loss, a quicker win beats a slower one, more white swords beats fewer
+    const better = !prev || (res.win && !prev.win) || (res.win && prev.win && res.rounds < prev.rounds) || (!res.win && !prev.win && res.white > prev.white);
+    if (better) all[s.daily] = res;
+    Object.keys(all).sort().slice(0, Math.max(0, Object.keys(all).length - 60)).forEach(k => delete all[k]);   // keep 60 days
+    try { localStorage.setItem(DAILY_KEY, JSON.stringify(all)); } catch (e) { /* storage may be blocked */ }
+  }
+  function dailyRow() {
+    const all = readDaily(), t = all[dayKey()], streak = dailyStreak(all);
+    const status = t ? (t.win ? `Won in ${t.rounds} rounds` : `Not beaten yet (best: ${t.white} white swords)`) : 'Not played yet today';
+    return '<h3>Daily challenge</h3><div class="daily"><div><b>Today: ' + esc(dayKey()) + '</b><small>' + esc(status) +
+      (streak ? ` &middot; ${streak}-day streak` : '') + '</small></div>' +
+      '<button type="button" data-a="daily">' + (t ? 'Play again' : 'Play today\'s game') + '</button></div>' +
+      '<p class="hint-line">Everyone gets the same game today: 5 defenders, Normal.</p>';
+  }
+  function startDaily() {
+    delete $('modal').dataset.lock; closeModal();
+    leaveOnline(); ui.preview = false;
+    const key = dayKey();
+    const g = C.createGame({ seed: dailySeed(key), partySize: 5, difficulty: 'normal' });
+    g.daily = key;
+    startFrom(g);
+    maybeStartTour();
+  }
+
+  // What happened this game, for the end screen.
+  function highlights(s) {
+    const st = s.stats;
+    if (!st) return '';
+    const best = st.progress.map((v, i) => [v, i]).sort((a, b) => b[0] - a[0])[0];
+    let h = '<h3>Highlights</h3><div class="kv">';
+    if (best && best[0] > 0) h += `<span>Most progress</span><b>${esc(dname(best[1]))} (${best[0]})</b>`;
+    h += `<span>Missions completed</span><b>${st.done}</b><span>Missions failed</span><b>${st.failed}</b>` +
+      `<span>Wounds taken</span><b>${st.wounds}</b><span>Sabotages</span><b>${s.sabotages || 0}</b></div>`;
+    return h;
+  }
+  function dailyResultText(s) {
+    const o = s.over;
+    return `Shadows of the Citadel, daily ${s.daily}\n${o.win ? 'Victory' : 'Defeat'} in ${s.round} rounds: ${C.count(s, 'white')} white swords, ` +
+      `${C.count(s, 'black')} black, ${s.siege} siege engines\n` + location.href.split('#')[0] + `#seed=${s.seed}&size=5&diff=normal`;
+  }
+
   function showEnd() {
     const s = game, o = s.over;
+    endTour();
     recordResult(s);
+    recordDaily(s);
     const stats = `<div class="kv"><span>Rounds</span><b>${s.round}</b><span>White swords</span><b>${C.count(s, 'white')}</b>` +
       `<span>Black swords</span><b>${C.count(s, 'black')}</b><span>Siege engines</span><b>${s.siege}</b>` +
       `<span>The Traitor was</span><b>${esc(dname(s.traitor))}${s.traitorRevealed ? ' (unmasked)' : ' (never found)'}</b>` +
-      `<span>Seed</span><b>${s.seed}</b></div>` + statsLine();
+      `<span>Seed</span><b>${s.seed}</b></div>` + highlights(s) + statsLine();
+    const dailyNote = s.daily ? `<p class="record">Daily challenge ${esc(s.daily)}: streak <b>${dailyStreak(readDaily())}</b> day${dailyStreak(readDaily()) === 1 ? '' : 's'}.</p>` : '';
     $('modal').dataset.lock = '1';
-    openModal(`<h2 id="modalTitle">${o.win ? 'Victory' : 'Defeat'}</h2><p>${esc(o.reason)}</p>${stats}` +
-      '<div class="modal-actions">' + (online ? '' : '<button type="button" class="ghost" data-a="share">Copy challenge link</button>') +
+    openModal(`<h2 id="modalTitle">${o.win ? 'Victory' : 'Defeat'}</h2><p>${esc(o.reason)}</p>${stats}${dailyNote}` +
+      '<div class="modal-actions">' + (online ? '' : `<button type="button" class="ghost" data-a="share">${s.daily ? 'Copy result' : 'Copy challenge link'}</button>`) +
       '<button type="button" class="ghost" data-a="view">View board</button><button type="button" class="primary" data-a="again">' +
       (online ? 'Leave game' : 'Play again') + '</button></div>');
     const box = $('modalCard');
@@ -971,9 +1074,9 @@
     box.querySelector('[data-a="again"]').onclick = () => { delete $('modal').dataset.lock; leaveOnline(); ui.preview = false; openSetup(); };
     const share = box.querySelector('[data-a="share"]');
     if (share) share.onclick = e => {
-      const url = shareUrl(s), b = e.currentTarget;
-      (navigator.clipboard ? navigator.clipboard.writeText(url) : Promise.reject()).then(
-        () => { b.textContent = 'Link copied'; }, () => { b.textContent = 'Copy failed'; window.prompt('Copy this link:', url); });
+      const text = s.daily ? dailyResultText(s) : shareUrl(s), b = e.currentTarget;
+      (navigator.clipboard ? navigator.clipboard.writeText(text) : Promise.reject()).then(
+        () => { b.textContent = s.daily ? 'Result copied' : 'Link copied'; }, () => { b.textContent = 'Copy failed'; window.prompt('Copy this:', text); });
     };
   }
 
@@ -990,7 +1093,7 @@
       '<h3>Difficulty</h3><div class="choice-row" id="diffRow">' + diffs + '</div>' +
       '<h3>Seed <small style="text-transform:none;letter-spacing:0;color:var(--muted)">(optional: same seed = same game)</small></h3>' +
       '<input id="seedInput" class="seed-input" inputmode="numeric" maxlength="10" placeholder="random" aria-label="Game seed">' +
-      statsLine() +
+      statsLine() + dailyRow() +
       '<div class="modal-actions">' +
       '<button type="button" class="ghost" data-a="rules">How to play</button>' +
       '<button type="button" class="ghost" data-a="online" title="Play with friends over the internet">Play online</button>' +
@@ -1001,6 +1104,7 @@
     card.querySelectorAll('[data-diff]').forEach(b => b.onclick = () => { ui.setup.difficulty = b.dataset.diff; card.querySelectorAll('[data-diff]').forEach(x => x.classList.toggle('sel', x === b)); });
     card.querySelector('[data-a="rules"]').onclick = () => { delete $('modal').dataset.lock; openRules(openSetup); };
     card.querySelector('[data-a="online"]').onclick = () => { delete $('modal').dataset.lock; openOnlineMenu(); };
+    card.querySelector('[data-a="daily"]').onclick = startDaily;
     const cont = card.querySelector('[data-a="cont"]');
     if (cont) cont.onclick = () => { delete $('modal').dataset.lock; closeModal(); leaveOnline(); ui.preview = false; startFrom(saved); };
     card.querySelector('[data-a="start"]').onclick = () => {
@@ -1011,6 +1115,7 @@
       const opts = { partySize: ui.setup.size, difficulty: ui.setup.difficulty };
       if (/^\d+$/.test(raw)) opts.seed = Number(raw);
       startFrom(C.createGame(opts));
+      maybeStartTour();
     };
   }
 
@@ -1031,10 +1136,126 @@
       '<h3>Online</h3><ul><li>Each friend controls one defender; empty seats are played by bots.</li>' +
       '<li>If the Traitor is a person, they choose when to <b>Sabotage</b> (1 action). Their role is shown only to them.</li></ul>' +
       '<h3>Keys</h3><p><b>1-7</b> select a card, <b>P</b>/<b>Enter</b> play, <b>G</b> gather, <b>R</b> rest, <b>H</b> hint, <b>E</b> end turn.</p>' +
-      '<div class="modal-actions"><button type="button" class="primary" data-a="back">Got it</button></div>');
+      '<div class="modal-actions"><button type="button" class="ghost" data-a="tour">Guided tour</button><button type="button" class="primary" data-a="back">Got it</button></div>');
     $('modalCard').querySelector('[data-a="back"]').onclick = () => { closeModal(); if (back) back(); };
+    $('modalCard').querySelector('[data-a="tour"]').onclick = () => { closeModal(); startTour(); };
   }
 
+  function openSettings() {
+    const pct = Math.round(SET.volume * 100);
+    openModal('<h2 id="modalTitle">Settings</h2>' +
+      '<h3>Sound</h3>' +
+      '<label class="check"><input type="checkbox" id="setSfx"> Sound effects</label>' +
+      '<label class="check"><input type="checkbox" id="setAmb"> Ambient wind and rain</label>' +
+      '<div class="set-row"><label for="setVol">Volume</label><input type="range" id="setVol" min="0" max="100" step="5"><output id="setVolOut"></output></div>' +
+      '<h3>Motion</h3>' +
+      '<div class="set-row"><label for="setMotion">Animation</label><select id="setMotion" class="seed-input"><option value="system">Follow my device</option><option value="reduce">Reduce motion</option><option value="full">Full motion</option></select></div>' +
+      '<label class="check"><input type="checkbox" id="setAuto"> Go to a mission automatically (expedition view)</label>' +
+      '<h3>Text</h3>' +
+      '<div class="set-row"><label for="setText">Side panel text</label><select id="setText" class="seed-input"><option value="normal">Normal</option><option value="large">Large</option></select></div>' +
+      '<div class="modal-actions"><button type="button" class="ghost" data-a="tour">Guided tour</button><button type="button" class="ghost" data-a="reset">Reset to defaults</button><button type="button" class="primary" data-a="done">Done</button></div>');
+    const box = $('modalCard');
+    const q = s => box.querySelector(s);
+    const sync = () => {
+      q('#setSfx').checked = !Snd.isMuted(); q('#setAmb').checked = SET.ambience;
+      q('#setVol').value = Math.round(SET.volume * 100); q('#setVolOut').textContent = Math.round(SET.volume * 100) + '%';
+      q('#setMotion').value = SET.motion; q('#setAuto').checked = SET.auto; q('#setText').value = SET.text;
+    };
+    sync();
+    const change = () => { saveSettings(); applySettings(); };
+    q('#setSfx').onchange = e => { Snd.setMuted(!e.target.checked); syncSoundButton(); };
+    q('#setAmb').onchange = e => { SET.ambience = e.target.checked; change(); };
+    q('#setVol').oninput = e => { SET.volume = e.target.value / 100; q('#setVolOut').textContent = e.target.value + '%'; change(); };
+    q('#setVol').onchange = () => Snd.play('white');          // a sample so you can hear the level
+    q('#setMotion').onchange = e => { SET.motion = e.target.value; change(); };
+    q('#setAuto').onchange = e => { SET.auto = e.target.checked; change(); };
+    q('#setText').onchange = e => { SET.text = e.target.value; change(); };
+    q('[data-a="reset"]').onclick = () => { Object.assign(SET, SET_DEFAULTS); Snd.setMuted(false); syncSoundButton(); change(); sync(); };
+    q('[data-a="done"]').onclick = closeModal;
+    q('[data-a="tour"]').onclick = () => { closeModal(); if (window.__startTour) window.__startTour(); };
+  }
+  // ---------- guided tour: a short spotlight walkthrough for new players ----------
+  const TOUR_KEY = 'citadel-tour-done';
+  const TOUR_STEPS = [
+    { target: () => $('stage'), title: 'The siege', text: 'Shadows are closing on the Citadel. Seat <b>7 white swords</b> on the wheel (bottom left) by finishing missions. Six black swords, or twelve siege engines along the top, and the Citadel falls.' },
+    { target: () => $('missions'), title: 'Missions', text: 'Each card is a mission. It has a <b>favoured suit</b> (the icon at top left: a card of that suit counts double), a progress bar and an hourglass: the rounds left before it fails.' },
+    { target: () => $('hand').closest('.panel'), title: 'Your hand', text: 'Four suits: Blade, Shield, Scroll and Boot. Click up to three cards to select them, then play them on the mission you are standing at.' },
+    { target: () => $('actions').closest('.panel'), title: 'Your turn', text: 'Each defender gets <b>two actions</b>: move to a mission, play cards, gather supplies, rest, give a card or accuse. When you are done, press <b>End turn</b>. <b>Hint</b> suggests a sensible move.' },
+    { target: () => $('shadowDeck'), title: 'The Shadow', text: 'Every turn starts with a Shadow card: siege engines, arrows, a whisper that steals a card, or treachery. You cannot stop it, only keep ahead of it.' },
+    { target: () => $('rumors').closest('.panel'), title: 'The Traitor', text: 'One defender secretly serves the enemy. After each sabotage, witnesses name a few suspects. <b>The Traitor is always among them</b>, so compare the lists, then press <b>Accuse</b>.' },
+    { target: null, title: 'Good luck', text: 'Open <b>Rules</b> any time for the full summary, and <b>Settings</b> for sound, motion and text size. You can replay this tour from either place.' }
+  ];
+  const tour = { i: 0, el: null, on: false };
+
+  function tourPlace() {
+    if (!tour.on) return;
+    const step = TOUR_STEPS[tour.i], card = tour.el.querySelector('.tour-card'), spot = tour.el.querySelector('.tour-spot');
+    const t = step.target ? step.target() : null;
+    const vw = window.innerWidth, vh = window.innerHeight;
+    if (t && t.getBoundingClientRect().width > 0) {
+      const r = t.getBoundingClientRect(), pad = 6;
+      spot.style.display = 'block';
+      Object.assign(spot.style, { left: (r.left - pad) + 'px', top: (r.top - pad) + 'px', width: (r.width + pad * 2) + 'px', height: (r.height + pad * 2) + 'px' });
+      const cw = Math.min(340, vw - 24), ch = card.offsetHeight || 180;
+      card.style.width = cw + 'px';
+      let x, y;
+      if (r.bottom + ch + 16 < vh) { y = r.bottom + 14; x = r.left; }                       // below
+      else if (r.top - ch - 16 > 0) { y = r.top - ch - 14; x = r.left; }                       // above
+      else if (r.left - cw - 16 > 0) { y = Math.max(12, r.top); x = r.left - cw - 14; }      // left
+      else { y = Math.max(12, vh - ch - 16); x = 12; }
+      card.style.left = Math.max(12, Math.min(x, vw - cw - 12)) + 'px';
+      card.style.top = Math.max(12, Math.min(y, vh - ch - 12)) + 'px';
+    } else {
+      spot.style.display = 'none';
+      const cw = Math.min(380, vw - 24);
+      card.style.width = cw + 'px';
+      card.style.left = ((vw - cw) / 2) + 'px';
+      card.style.top = Math.max(12, (vh - (card.offsetHeight || 200)) / 2) + 'px';
+    }
+  }
+
+  function tourShow() {
+    const step = TOUR_STEPS[tour.i], last = tour.i === TOUR_STEPS.length - 1;
+    const t = step.target ? step.target() : null;
+    if (t && t.scrollIntoView) t.scrollIntoView({ block: 'center', behavior: 'auto' });
+    tour.el.querySelector('.tour-card').innerHTML =
+      `<small>${tour.i + 1} of ${TOUR_STEPS.length}</small><h3>${esc(step.title)}</h3><p>${step.text}</p>` +
+      '<div class="tour-actions">' + (last ? '' : '<button type="button" class="ghost" data-t="skip">Skip tour</button>') +
+      (tour.i > 0 ? '<button type="button" class="ghost" data-t="back">Back</button>' : '') +
+      `<button type="button" class="primary" data-t="next">${last ? 'Start playing' : 'Next'}</button></div>`;
+    const c = tour.el.querySelector('.tour-card');
+    c.querySelector('[data-t="next"]').onclick = () => { if (last) endTour(); else { tour.i++; tourShow(); } };
+    const b = c.querySelector('[data-t="back"]'); if (b) b.onclick = () => { tour.i--; tourShow(); };
+    const s = c.querySelector('[data-t="skip"]'); if (s) s.onclick = endTour;
+    tourPlace();
+    c.querySelector('[data-t="next"]').focus({ preventScroll: true });
+  }
+
+  function startTour() {
+    if (tour.on) return;
+    closeExpedition(true);
+    if (!$('modal').hidden) closeModal();
+    tour.on = true; tour.i = 0;
+    tour.el = el('div', 'tour', '<div class="tour-spot"></div><div class="tour-card" role="dialog" aria-modal="true" aria-label="Guided tour"></div>');
+    document.body.appendChild(tour.el);
+    tourShow();
+  }
+  function endTour() {
+    if (!tour.on) return;
+    tour.on = false;
+    tour.el.remove(); tour.el = null;
+    try { localStorage.setItem(TOUR_KEY, '1'); } catch (e) { /* ignore */ }
+  }
+  window.addEventListener('resize', tourPlace);
+  document.addEventListener('keydown', e => { if (tour.on && e.key === 'Escape') { e.stopPropagation(); endTour(); } }, true);
+  window.__startTour = startTour;
+
+  // Offered automatically once, on the first game started from the setup dialog.
+  function maybeStartTour() {
+    if (ui.fast || online) return;
+    let done = false; try { done = localStorage.getItem(TOUR_KEY) === '1'; } catch (e) { /* ignore */ }
+    if (!done) setTimeout(() => { if (!tour.on && $('modal').hidden) startTour(); }, 700);
+  }
   // ---------- weather ----------
   const weather = { kind: 'clear', drops: [], raf: 0 };
 
@@ -1334,8 +1555,10 @@
 
   $('btnNew').onclick = openSetup;
   $('btnRules').onclick = () => openRules();
+  $('btnSettings').onclick = openSettings;
 
   if (Missions) Missions.installDefs();
+  applySettings();
   buildStatic();
   buildWindows();
   ui.fast = /selftest/.test(location.hash);
@@ -1353,7 +1576,7 @@
   }
 
   // test hook
-  window.__citadel = { get game() { return game; }, render, startFrom, mw, openExpedition, closeExpedition, handArt, describeEvent, chronicle, clearChronicle, chron: ui.chron };
+  window.__citadel = { get game() { return game; }, render, startFrom, mw, openExpedition, closeExpedition, startTour, endTour, tour, startDaily, reportError, daily: { dayKey, dailySeed, readDaily, dailyStreak }, handArt, describeEvent, chronicle, clearChronicle, chron: ui.chron, settings: SET };
   if (/selftest/.test(location.hash)) {
     const t = document.createElement('script');
     t.src = 'js/selftest.js';

@@ -7,7 +7,7 @@
 (function (root) {
   'use strict';
 
-  const reduced = !!(root.matchMedia && root.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  let reduced = !!(root.matchMedia && root.matchMedia('(prefers-reduced-motion: reduce)').matches);
   const active = new Set();
   let raf = 0, last = 0;
 
@@ -120,7 +120,7 @@
       });
       this.storm = null;
       this.t = 0;
-      if (!reduced) { active.add(this); start(); }
+      active.add(this); start();
     }
     resize() {
       const c = this.canvas, dpr = Math.min(root.devicePixelRatio || 1, 1.5);
@@ -141,6 +141,7 @@
     lightning() { this.flashA = 0.55; }
     frame(dt) {
       if (!this.canvas.isConnected) return;
+      if (reduced) { if (this.w) this.ctx.clearRect(0, 0, this.w, this.h); return; }
       this.resize();
       const c = this.ctx, w = this.w, h = this.h;
       c.clearRect(0, 0, w, h);
@@ -164,5 +165,8 @@
     destroy() { active.delete(this); if (!active.size) stop(); }
   }
 
-  root.CitadelFx = { create: (canvas, id) => new Fx(canvas, id), PROFILES, reduced };
+  // The game's motion setting can override the system preference at any time.
+  function setReduced(on) { reduced = !!on; if (reduced) stop(); else if (active.size) start(); }
+
+  root.CitadelFx = { create: (canvas, id) => new Fx(canvas, id), PROFILES, setReduced, isReduced: () => reduced };
 })(typeof window !== 'undefined' ? window : globalThis);

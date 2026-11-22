@@ -8,7 +8,7 @@
 
   const KEY = 'citadel-muted';
   let ctx = null, master = null, muted = false, volume = 0.7;
-  let ambience = null, noiseBuf = null;
+  let ambience = null, noiseBuf = null, ambienceOn = true;
 
   try { muted = localStorage.getItem(KEY) === '1'; } catch (e) { /* storage blocked */ }
 
@@ -131,8 +131,18 @@
       ambience = { g, f };
     }
     const target = [0.012, 0.03, 0.06][level] || 0;
-    ambience.g.gain.linearRampToValueAtTime(target, c.currentTime + 1.5);
+    ambience.target = target;
+    ambience.g.gain.linearRampToValueAtTime(ambienceOn ? target : 0, c.currentTime + 1.5);
     ambience.f.frequency.linearRampToValueAtTime([420, 900, 1400][level] || 420, c.currentTime + 1.5);
+  }
+
+  function setVolume(v) {
+    volume = Math.max(0, Math.min(1, +v || 0));
+    if (ctx && master && !muted) master.gain.setTargetAtTime(volume, ctx.currentTime, 0.05);
+  }
+  function setAmbienceOn(on) {
+    ambienceOn = !!on;
+    if (ctx && ambience) ambience.g.gain.setTargetAtTime(ambienceOn ? (ambience.target || 0) : 0, ctx.currentTime, 0.4);
   }
 
   function setMuted(m) {
@@ -142,5 +152,5 @@
     if (!muted) unlock();
   }
 
-  root.CitadelSound = { play, unlock, setAmbience, setMuted, isMuted: () => muted, supported: () => !!(root.AudioContext || root.webkitAudioContext) };
+  root.CitadelSound = { play, unlock, setAmbience, setMuted, setVolume, getVolume: () => volume, setAmbienceOn, isAmbienceOn: () => ambienceOn, isMuted: () => muted, supported: () => !!(root.AudioContext || root.webkitAudioContext) };
 })(typeof window !== 'undefined' ? window : globalThis);

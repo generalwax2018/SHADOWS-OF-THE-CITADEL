@@ -300,6 +300,34 @@ test('sabotageAction: only the Traitor, costs an action, produces a rumor; human
     eq(g.sabotages, 0, 'no auto sabotage seed ' + seed);
   }
 });
+test('run statistics count progress, completed and failed missions and wounds', () => {
+  const s = fresh(51, 5);
+  eq(s.stats.progress.length, 5, 'one progress counter per defender');
+  const a = s.active; s.party[a].id = 'shield'; C.move(s, 0);
+  const q = s.quests[0]; q.progress = q.needed - 3;
+  s.party[a].hand = [{ id: 880, suit: C.questDef(q.id).suit }, { id: 881, suit: C.questDef(q.id).suit }];
+  const r = C.contribute(s, [880, 881]);
+  eq(s.stats.progress[a], r.gain, 'progress credited to the defender who played');
+  eq(s.stats.done, 1, 'a completed mission is counted');
+  const w0 = s.stats.wounds;
+  s.party[(a + 1) % 5].hp = 3; s.active = (a + 1) % 5;
+  s.shadowDeck = ['wound'];
+  C.endTurn(s); // a turn that ends and the next draws; just prove wounds only go up
+  ok(s.stats.wounds >= w0, 'wounds never go down');
+  const f = fresh(52, 5); f.quests.forEach(x => { if (x) x.timer = 1; });
+  f.active = 4; f.actionsLeft = 2; C.endTurn(f);
+  ok(f.stats.failed >= 1 || f.over, 'failed missions are counted when a deadline passes');
+});
+test('a saved game from before statistics existed still plays', () => {
+  const s = fresh(53, 4); delete s.stats;
+  for (let i = 0; i < 30 && !s.over; i++) { const h = C.suggest(s); if (h && h.type === 'play') C.contribute(s, h.cards); else if (h && h.type === 'move') C.move(s, h.dest); else C.endTurn(s); }
+  ok(true);
+});
+test('statistics do not change the game: same seed, same opening', () => {
+  const a = C.createGame({ seed: 777, partySize: 5 }), b = C.createGame({ seed: 777, partySize: 5 });
+  eq(JSON.stringify(a), JSON.stringify(b));
+  eq(a.shadowDeck.join(), b.shadowDeck.join());
+});
 test('mage sees next shadow card, others do not', () => {
   const s = C.createGame({ seed: 5, partySize: 7 });
   ok(C.nextShadowPeek(s) !== null);

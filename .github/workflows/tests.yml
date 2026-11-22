@@ -1,0 +1,23 @@
+﻿name: Tests
+
+# Runs the same headless-browser suites you run locally (see README, "Tests").
+# Windows runners ship with Edge, which the scripts under tools/ drive.
+on:
+  push:
+  pull_request:
+
+jobs:
+  tests:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Engine rules and balance
+        shell: powershell
+        run: ./tools/run-tests.ps1
+      - name: UI smoke test
+        shell: powershell
+        run: ./tools/run-ui-test.ps1
+      - name: Online protocol (WebRTC loopback)
+        shell: powershell
+        continue-on-error: true   # WebRTC on a CI runner can be flaky; do not block on it
+        run: ./tools/run-online-test.ps1
