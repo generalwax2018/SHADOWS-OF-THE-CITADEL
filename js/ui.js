@@ -463,6 +463,7 @@
     }
 
     renderTrail(s);
+    if (online) updateNetChip();
     renderWindows();
     renderMissions();
     renderQuestList();
@@ -793,10 +794,14 @@
       title: 'Select exactly one card, then pass it to a defender standing in the same place' });
     btn('Accuse...', openAccuse, { disabled: s.rumors.length === 0 || s.traitorRevealed, title: 'Needs at least one sabotage rumor' });
     if (online && isTraitorMe() && !s.traitorRevealed) {
-      btn('Sabotage', () => act(() => perform('sabotageAction')), { cls: 'danger', title: 'Secretly strike. Witnesses will name you and a few others.' });
+      const sab = btn('Sabotage (Traitor)', () => act(() => perform('sabotageAction')), { cls: 'danger traitor-act', title: 'Costs 1 action. Secretly strike the quest you stand at (or the Citadel). Witnesses will name you and a few others.' });
+      sab.dataset.traitor = '1';
     }
     btn('Hint', hint, { cls: 'ghost', needAction: false, title: 'Suggest a sensible next step [H]' });
     btn('End turn', endTurn, { cls: 'danger', needAction: false, title: 'Finish this defender\'s turn [E]' });
+    if (online && isTraitorMe() && !s.traitorRevealed) {
+      box.appendChild(el('p', 'traitor-note', '<b>Traitor:</b> Sabotage costs 1 action and strikes where you stand. Witnesses will name you and a few others, so pick your moment.'));
+    }
   }
 
   function giveTargets() {
@@ -1392,7 +1397,8 @@
     const chip = $('netChip');
     if (!online) { chip.hidden = true; return; }
     chip.hidden = false;
-    chip.innerHTML = `Online <strong>${online.role === 'host' ? 'host' : 'guest'}</strong>`;
+    const role = game ? (isTraitorMe() && !game.traitorRevealed ? ' <span class="role-chip traitor">Traitor</span>' : isTraitorMe() ? ' <span class="role-chip">Unmasked</span>' : ' <span class="role-chip loyal">Loyal</span>') : '';
+    chip.innerHTML = `Online <strong>${online.role === 'host' ? 'host' : 'guest'}</strong>${role}`;
     chip.title = `You are defender ${online.seat + 1}: ${online.names[online.seat] || ''}`;
   }
 
@@ -1528,7 +1534,8 @@
   function showRole() {
     const traitor = isTraitorMe();
     $('modal').dataset.lock = '1';
-    openModal('<h2 id="modalTitle">' + (traitor ? 'You are the Traitor' : 'You are a loyal defender') + '</h2>' +
+    openModal('<div class="role-banner ' + (traitor ? 'traitor' : 'loyal') + '"><small>Your secret role</small><b>' + (traitor ? 'You are the Traitor' : 'You are a loyal defender') + '</b></div>' +
+      '<h2 id="modalTitle" class="sr-only">' + (traitor ? 'You are the Traitor' : 'You are a loyal defender') + '</h2>' +
       '<p>You control <b>' + esc(C.defenderDef(game.party[online.seat].id).name) + '</b>.</p>' +
       (traitor ? '<p>Win by letting the Citadel fall. On your turn you may <b>Sabotage</b>; witnesses will name you and a few others, so strike when the rumor will not point only at you. Do not reveal your role.</p>'
                : '<p>One defender is secretly a Traitor and could be another person. Watch the rumors after each sabotage, then accuse.</p>') +

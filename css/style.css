@@ -732,3 +732,16 @@ html.reduce-motion .stage .torch, html.reduce-motion .stage .fog, html.reduce-mo
 /* the quest slots on the tilted board are a little smaller: keep their text on one line */
 .slot { padding-right: 0.9cqw; padding-left: 0.8cqw; }
 .slot .qname { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 1.3cqw; }
+
+/* ======================= secret role reveal ======================= */
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.role-banner { text-align: center; padding: 22px 14px; margin-bottom: 10px; border-radius: 10px; border: 1px solid #5a4a30; animation: roleIn .7s cubic-bezier(.2,.9,.3,1.2) both; }
+.role-banner small { display: block; font-size: 12px; letter-spacing: .22em; text-transform: uppercase; opacity: .8; margin-bottom: 6px; }
+.role-banner b { font: 700 30px Georgia, serif; letter-spacing: .03em; }
+.role-banner.traitor { background: radial-gradient(circle at 50% 30%, #4a1410, #1d0806); border-color: #d0584a; color: #ffd0c6; box-shadow: 0 0 40px rgba(208,60,40,.45); }
+.role-banner.loyal { background: radial-gradient(circle at 50% 30%, #12304a, #07121c); border-color: #5a9ad0; color: #cfe6ff; box-shadow: 0 0 30px rgba(90,154,208,.35); }
+@keyframes roleIn { 0% { opacity: 0; transform: scale(.85); filter: brightness(2); } 100% { opacity: 1; transform: none; filter: none; } }
+.role-chip { display: inline-block; margin-left: 6px; padding: 0 7px; border-radius: 999px; font-size: 11px; border: 1px solid #5a9ad0; color: #cfe6ff; }
+.role-chip.traitor { border-color: #d0584a; color: #ffc4b8; background: #2a1210; }
+.traitor-act { grid-column: 1 / -1; background: linear-gradient(180deg, #4a1410, #2a0a08); border-color: #d0584a; color: #ffd0c6; box-shadow: 0 0 14px rgba(208,60,40,.35); }
+.traitor-note { grid-column: 1 / -1; margin: 4px 0 0; font-size: 12px; color: #e0a89c; }
