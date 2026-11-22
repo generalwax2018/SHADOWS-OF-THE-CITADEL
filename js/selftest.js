@@ -30,10 +30,10 @@
       check('blade, shield, scroll and boot cards show their paintings', cs.slice(0, 4).every(c => c.classList.contains('art')) && loaded.every(Boolean), urls.join(' | '));
       check('all four suits (blade, shield, scroll, boot) show paintings', cs.slice(0, 4).every(c => c.classList.contains('art')));
       // a suit whose painting is missing must fall back to the plain card design
-      H.handArt.boot = false; H.render();
+      const bootUrl = H.handArt.boot; H.handArt.boot = ''; H.render();
       const csFallback = [...document.querySelectorAll('#hand .card')];
       check('a suit without a painting keeps the plain card design', !csFallback[3].classList.contains('art') && csFallback[3].querySelector('.ico'));
-      H.handArt.boot = true;
+      H.handArt.boot = bootUrl;
       p0.hand = saved; H.render();
     }
 
@@ -153,7 +153,7 @@
       check('turn banner shown for the new turn', $('banner').classList.contains('show') && /turn/.test($('banner').textContent), $('banner').textContent);
       check('Shadow card reveal shown', $('shadowReveal').classList.contains('show') && $('shadowReveal').textContent.length > 5);
       const sc = $('shadowReveal').querySelector('.sr-card.art');
-      const su = sc && (/url\("?([^")]+shadow\.jpg[^")]*)"?\)/.exec(getComputedStyle(sc).backgroundImage) || [])[1];
+      const su = sc && (/url\("?([^")]+shadow\.(?:webp|jpg)[^")]*)"?\)/.exec(getComputedStyle(sc).backgroundImage) || [])[1];
       const sOk = su ? await new Promise(r => { const i = new Image(); i.onload = () => r(true); i.onerror = () => r(false); i.src = su; }) : false;
       check('the Shadow card shows its painting (the image URL loads)', !!sc && sOk, su || 'no art class');
     }
@@ -189,7 +189,7 @@
       let allArt = true;
       C.QUEST_DEFS.forEach(d => {
         const a = window.CitadelMissions.art(d);
-        const ok = d.img ? /<img[^>]+src="assets\/[a-z-]+\.jpg"/.test(a) : (/<svg/.test(a) && a.length > 2000 && a.includes(d.name.toUpperCase().split(' ')[0]));
+        const ok = d.img ? /<img[^>]+src="assets\/[a-z-]+\.webp"/.test(a) : (/<svg/.test(a) && a.length > 2000 && a.includes(d.name.toUpperCase().split(' ')[0]));
         if (!ok) allArt = false;
       });
       check('all 12 missions can render a card illustration', allArt);
@@ -311,8 +311,10 @@
       check('painting URLs carry a version so replaced images are never stale', hrefs.length > 0 && hrefs.every(h => /\?v=\d+$/.test(h)) && /^\d+$/.test(window.CitadelMissions.artVersion), hrefs.slice(0, 2).join(' '));
       check('painting layers only exist for files that load (no broken-image icons)', loadOk.every(Boolean), hrefs.filter((h, i) => !loadOk[i]).join(','));
       const M = window.CitadelMissions;
-      M._probes[M.versioned('assets/art/sea.jpg')] = Promise.resolve(true);
-      M._probes[M.versioned('assets/card/sea.jpg')] = Promise.resolve(true);
+      const setProbe = (base, val) => { ['webp', 'jpg'].forEach(e => { M._probes[M.versioned(base + '.' + e)] = Promise.resolve(val); }); };
+      const clearProbe = base => { ['webp', 'jpg'].forEach(e => { delete M._probes[M.versioned(base + '.' + e)]; }); };
+      setProbe('assets/art/sea', true);
+      setProbe('assets/card/sea', true);
       const host = document.createElement('div');
       host.innerHTML = M.art(C.questDef('sea'));
       document.body.appendChild(host);
@@ -322,7 +324,7 @@
       check('an art-only painting wins: the full-card file is not used when an illustration exists', !host.querySelector('image.card-photo'));
       host.remove();
       // with no illustration, a full-card painting covers the whole card
-      M._probes[M.versioned('assets/art/sea.jpg')] = Promise.resolve(false);
+      setProbe('assets/art/sea', false);
       const hostC = document.createElement('div');
       hostC.innerHTML = M.art(C.questDef('sea'));
       document.body.appendChild(hostC);
@@ -330,10 +332,21 @@
       await new Promise(r => setTimeout(r, 80));
       check('a full-card painting covers the whole card when there is no illustration', !!hostC.querySelector('svg > image.card-photo') && !hostC.querySelector('image.art-photo'));
       hostC.remove();
-      M._probes[M.versioned('assets/art/sea.jpg')] = Promise.resolve(true);
+      setProbe('assets/art/sea', true);
+
+      // a freshly downloaded JPG (no WebP yet) must still be picked up, and WebP must win when both exist
+      M._probes[M.versioned('assets/art/forge.webp')] = Promise.resolve(false);
+      M._probes[M.versioned('assets/art/forge.jpg')] = Promise.resolve({ w: 671, h: 1000 });
+      const fj = await M.resolveImage('assets/art/forge');
+      check('a JPG-only painting is still found (the format fallback)', !!fj && /forge\.jpg\?v=\d+$/.test(fj.url));
+      M._probes[M.versioned('assets/art/forge.webp')] = Promise.resolve({ w: 671, h: 1000 });
+      const fw = await M.resolveImage('assets/art/forge');
+      check('WebP is preferred when both formats exist', !!fw && /forge\.webp\?v=\d+$/.test(fw.url));
+      check('a painting with no file in either format resolves to nothing', await M.resolveImage('assets/art/__nothing__') === false);
+      clearProbe('assets/art/forge');
 
       // tall paintings: full-bleed on cards, panning in the live windows
-      M._probes[M.versioned('assets/art/mountains.jpg')] = Promise.resolve({ w: 671, h: 1000 });
+      setProbe('assets/art/mountains', { w: 671, h: 1000 });
       const hostT = document.createElement('div');
       hostT.innerHTML = M.art(C.questDef('mountains'));
       document.body.appendChild(hostT);
@@ -344,7 +357,7 @@
       check('a tall painting fills the whole card behind the title', !!hostT.querySelector('svg.bleed > image.art-bleed') && !hostT.querySelector('image.art-photo'));
       check('a tall painting pans slowly in the live window', lvT.el.classList.contains('lv-bleed') && !!lvT.el.querySelector('.lv-art') && !!lvT.el.querySelector('.lv-glow'));
       lvT.destroy(); lvT.el.remove(); hostT.remove();
-      delete M._probes[M.versioned('assets/art/mountains.jpg')];
+      clearProbe('assets/art/mountains');
 
       const hostP = document.createElement('div');
       hostP.innerHTML = M.art(C.questDef('pass'));

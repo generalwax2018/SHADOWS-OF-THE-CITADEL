@@ -3,7 +3,7 @@
 An original cooperative board game of siege and betrayal, playable in any browser. The Citadel is
 surrounded, quests are racing their deadlines, and one of your defenders is secretly working for the enemy.
 
-All art and rules are original.
+The rules, code and layout are original to this project. The artwork was generated with AI image tools; see [License and credits](#license-and-credits).
 
 ## Run the game
 
@@ -95,8 +95,8 @@ standing there. Select a card to open it full size, or to move there.
 
 - Four missions use the painted cards. The other eight have generated illustrations that move: beacon fires flicker,
   the sea rolls under a storm, the forge throws sparks, fog drifts through the pines, banners sway.
-- **Replace the generated art with paintings:** drop an image at `assets/art/<id>.jpg` (illustration only, the game adds
-  the frame and text; tall 2:3 paintings work best) or `assets/card/<id>.jpg` (a complete card) and it is used
+- **Replace the generated art with paintings:** drop an image at `assets/art/<id>.webp` or `.jpg` (illustration only, the game adds
+  the frame and text; tall 2:3 paintings work best) or `assets/card/<id>.webp` (a complete card) and it is used
   automatically. All eight formerly generated missions now have paintings this way. See
   [docs/MISSION_ART.md](docs/MISSION_ART.md) for the file names, what is still missing and ready-made prompts.
 - Cards animate as the game changes: a **+N** floats up when you make progress, a card pulses red when it has two
@@ -212,7 +212,7 @@ Every game has a seed. Enter one on the setup screen, or share a link like `inde
 | `tests.html` | engine unit tests plus a bot balance simulation |
 | `tests-online.html` | host/guest protocol tests over a real WebRTC loopback connection |
 | `js/selftest.js` | UI smoke test, loaded only with `#selftest` in the URL |
-| `tools/` | the test runners (rules, UI, online) |
+| `tools/` | the test runners (rules, UI, online) and `optimize-art.ps1`, which shrinks new paintings to WebP |
 
 Add `#seed=42` to the URL to start a reproducible game (useful for bug reports).
 
@@ -243,3 +243,14 @@ The balance simulation plays seeded games with a simple greedy bot, per difficul
 
 The bot is a simple greedy player: it never passes cards and only accuses when one defender is named in every
 rumor. A thoughtful human should do better. Tune `DIFFICULTY` and `SIZE_NEED` in `js/engine.js` and rerun `tools\run-tests.ps1`.
+
+## License and credits
+
+- **Code** (HTML, CSS, JavaScript and the scripts in `tools/`): [MIT License](LICENSE).
+- **Artwork** (everything in `assets/`): all rights reserved, **not** under the MIT license, so please do not reuse the
+  images elsewhere without permission. It was generated with AI image tools (Grok) from prompts written for this project,
+  then resized and compressed here. See [assets/LICENSE.txt](assets/LICENSE.txt), and check the generating service's terms
+  and your local rules before selling or commercially publishing the game.
+- **Sound** is synthesized in the browser at run time; there are no audio files.
+- The game is an original design. It is a co-operative game with a hidden traitor, a family of designs that long predates
+  it, but its rules, names, art and text are its own.

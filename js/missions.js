@@ -5,9 +5,9 @@
  * animated SVG scene (depth haze, bloom, grain, vignette) inside a gold card frame with its title and objective.
  *
  * Painting drop-in (either one, no code changes needed):
- *   assets/art/<mission id>.jpg   an illustration only (no text, no frame), roughly square, e.g. 1024x1024.
+ *   assets/art/<mission id>.webp (or .jpg)   an illustration only (no text, no frame), roughly square, e.g. 1024x1024.
  *                                 Shown inside the generated gold frame with the title and objective, with a slow drift.
- *   assets/card/<mission id>.jpg  a complete card (frame and title painted in), 2:3 portrait like the four painted cards.
+ *   assets/card/<mission id>.webp (or .jpg)  a complete card (frame and title painted in), 2:3 portrait like the four painted cards.
  *                                 Covers the whole generated card.
  * If a file is missing the generated scene simply shows through. See docs/MISSION_ART.md for ready-made prompts.
  *
@@ -325,7 +325,7 @@
   function art(def, base) {
     const assets = base || 'assets/';
     if (def.img) {
-      return `<img class="mc-img" src="${assets + def.img}.jpg" alt="${esc(def.name)}" draggable="false">`;
+      return `<img class="mc-img" src="${assets + def.img}.webp" alt="${esc(def.name)}" draggable="false">`;
     }
     const scene = (SCENES[def.id] || SCENES.default)();
     return `<svg class="mc-svg" viewBox="0 0 400 600" role="img" aria-label="${esc(def.name)}" xmlns="http://www.w3.org/2000/svg">` +
@@ -342,7 +342,7 @@
   // Browsers and GitHub Pages cache images (including "not found" and wrong files) for minutes. Painting URLs carry
   // this version, so changing it makes every browser fetch fresh copies. BUMP IT whenever a painting under
   // assets/art, assets/card or assets/cards is added or replaced.
-  const ART_VERSION = '5';
+  const ART_VERSION = '6';
   const versioned = u => u + '?v=' + ART_VERSION;
 
   // A probe resolves to false (no such file) or {w, h} (its pixel size). A bare `true` counts as a square image.
@@ -361,6 +361,19 @@
   // Tall paintings (2:3 and similar) fill the whole card behind the title and objective, like the painted cards.
   const isPortrait = r => !!r && typeof r === 'object' && r.w > 0 && r.h / r.w > 1.15;
 
+  // Optional paintings are looked up as <base>.webp first (the optimised format the game ships), then <base>.jpg, so a
+  // freshly downloaded JPG works the moment it is saved and tools/optimize-art.ps1 can shrink it later. Resolves to
+  // { url, r } (the versioned URL that loaded, and its probe result) or false.
+  const IMAGE_EXTS = ['webp', 'jpg'];
+  function resolveImage(base) {
+    const tryAt = i => {
+      if (i >= IMAGE_EXTS.length) return Promise.resolve(false);
+      const url = versioned(base + '.' + IMAGE_EXTS[i]);
+      return probe(url).then(r => (r ? { url, r } : tryAt(i + 1)));
+    };
+    return tryAt(0);
+  }
+
   // Call after a card's HTML is in the document. Adds assets/art/<id>.jpg inside the frame and/or
   // assets/card/<id>.jpg over the whole card, when those files exist.
   function attach(host, def, base) {
@@ -375,19 +388,19 @@
       im.setAttribute('preserveAspectRatio', 'xMidYMid slice');
       return im;
     };
-    const artUrl = versioned(assets + 'art/' + def.id + '.jpg'), cardUrl = versioned(assets + 'card/' + def.id + '.jpg');
     // An art-only painting wins. A full-card painting is only looked for when there is no art-only one, which also
     // spares every page load a "not found" request per mission.
-    probe(artUrl).then(r => {
+    resolveImage(assets + 'art/' + def.id).then(found => {
       if (!svg.isConnected) return;
-      if (!r) {
-        probe(cardUrl).then(ok => {
-          if (!ok || !svg.isConnected || svg.querySelector('.card-photo')) return;
-          svg.appendChild(make('card-photo', cardUrl, 0, 0, 400, 600));
+      if (!found) {
+        resolveImage(assets + 'card/' + def.id).then(card => {
+          if (!card || !svg.isConnected || svg.querySelector('.card-photo')) return;
+          svg.appendChild(make('card-photo', card.url, 0, 0, 400, 600));
         });
         return;
       }
       if (svg.querySelector('.art-photo, .art-bleed')) return;
+      const r = found.r, artUrl = found.url;
       if (isPortrait(r)) {
         // full-bleed: the painting fills the card and the frame's title and objective sit over it
         svg.classList.add('bleed');
@@ -438,7 +451,7 @@
     if (def.img) {
       // The painted cards are cropped to their illustration (title and objective panel removed).
       svg = '<svg class="mc-svg lv-svg lv-painted" viewBox="52 326 680 492" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">' +
-        `<image href="${assets + def.img}.jpg" width="784" height="1168"/>` +
+        `<image href="${assets + def.img}.webp" width="784" height="1168"/>` +
         `<rect class="pv-glow" x="52" y="326" width="680" height="492" fill="url(#g-${GLOW[def.id] || 'warm'})"/>` +
         '<rect x="52" y="326" width="680" height="492" fill="url(#vig)" opacity=".75"/></svg>';
     } else {
@@ -450,10 +463,10 @@
     const fx = root.CitadelFx ? root.CitadelFx.create(box.querySelector('canvas'), def.id) : null;
 
     if (!def.img) {
-      // optional painting drop-in (assets/art/<id>.jpg), shown over the generated scene
-      const url = versioned(assets + 'art/' + def.id + '.jpg');
-      probe(url).then(r => {
-        if (!r || !el.isConnected || el.querySelector('.art-photo') || box.querySelector('.lv-art')) return;
+      // optional painting drop-in (assets/art/<id>.webp or .jpg), shown over the generated scene
+      resolveImage(assets + 'art/' + def.id).then(found => {
+        if (!found || !el.isConnected || el.querySelector('.art-photo') || box.querySelector('.lv-art')) return;
+        const r = found.r, url = found.url;
         if (isPortrait(r)) {
           // a tall painting: the camera pans slowly down it, with a glow that grows with progress
           const art = root.document.createElement('div');
@@ -496,5 +509,5 @@
     return { el: box, def, update, flare, destroy, fx };
   }
 
-  root.CitadelMissions = { art, attach, live, installDefs, applyProgress, SCENES, versioned, artVersion: ART_VERSION, _probes: probes };
+  root.CitadelMissions = { art, attach, live, installDefs, applyProgress, SCENES, versioned, resolveImage, artVersion: ART_VERSION, _probes: probes };
 })(typeof window !== 'undefined' ? window : globalThis);

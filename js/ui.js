@@ -1,4 +1,4 @@
-﻿/* Shadows of the Citadel - UI. Renders engine state; never changes rules. */
+/* Shadows of the Citadel - UI. Renders engine state; never changes rules. */
 (function () {
   'use strict';
   const C = window.Citadel;
@@ -21,7 +21,7 @@
   }
   function esc(t) { return String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
   function dname(i) { return C.defenderDef(game.party[i].id).name; }
-  function portraitUrl(i) { return `assets/${C.defenderDef(game.party[i].id).img}.jpg`; }
+  function portraitUrl(i) { return `assets/${C.defenderDef(game.party[i].id).img}.webp`; }
 
   const ICONS = {
     blade:  '<svg viewBox="0 0 24 24"><path d="M19.5 2.5 21.5 4.5 11 15 9 13z"/><path d="M8 14l2 2-3.5 3.5a1.4 1.4 0 0 1-2-2z"/><path d="M12.5 16.5l1 1-2 2-1-1z"/></svg>',
@@ -148,9 +148,9 @@
     const info = SHADOW_INFO[type];
     if (!info) return;
     const box = $('shadowReveal');
-    const artStyle = shadowArt.ok
-      ? ` style="background-image:linear-gradient(rgba(8,4,14,.12),rgba(8,4,14,.55) 62%,rgba(8,4,14,.8)),url('${cardUrl('shadow')}')"` : '';
-    box.innerHTML = `<div class="sr-card${shadowArt.ok ? ' art' : ''}"${artStyle}><small>Shadow</small><b>${esc(info[0])}</b><span>${esc(info[1])}</span></div>`;
+    const artStyle = shadowArt.url
+      ? ` style="background-image:linear-gradient(rgba(8,4,14,.12),rgba(8,4,14,.55) 62%,rgba(8,4,14,.8)),url('${shadowArt.url}')"` : '';
+    box.innerHTML = `<div class="sr-card${shadowArt.url ? ' art' : ''}"${artStyle}><small>Shadow</small><b>${esc(info[0])}</b><span>${esc(info[1])}</span></div>`;
     box.className = 'shadow-reveal show';
     clearTimeout(showShadow.t);
     showShadow.t = setTimeout(() => { box.className = 'shadow-reveal'; }, 2300);
@@ -315,7 +315,7 @@
       if (isTraitorMe() && !s.traitorRevealed) who += '<div class="role-tag">You are the Traitor</div>';
     }
     $('activePanel').innerHTML =
-      `<div class="portrait"><img src="assets/${d.img}.jpg" alt="${esc(d.name)}"></div>` +
+      `<div class="portrait"><img src="assets/${d.img}.webp" alt="${esc(d.name)}"></div>` +
       `<div>${who}<h3>${esc(d.name)}</h3>${hpPips(p)}<p>${esc(d.ability)}</p>` +
       (peek ? `<div class="peek">Foresight: next Shadow is ${peekText[peek] || peek}.</div>` : '') + '</div>';
 
@@ -330,7 +330,7 @@
       const b = el('button', `card suit-${c.suit}` + (ui.picked.includes(c.id) ? ' selected' : '') + (def && def.suit === c.suit ? ' match' : ''));
       b.type = 'button';
       b.innerHTML = `<span class="ico suit-${c.suit}">${ICONS[c.suit]}</span>${C.SUIT_LABEL[c.suit]}`;
-      if (handArt[c.suit]) { b.classList.add('art'); b.style.backgroundImage = `url('${cardUrl(c.suit)}')`; }
+      if (handArt[c.suit]) { b.classList.add('art'); b.style.backgroundImage = `url('${handArt[c.suit]}')`; }
       b.setAttribute('aria-pressed', ui.picked.includes(c.id));
       b.disabled = !mine();
       b.addEventListener('click', () => toggleCard(c.id));
@@ -720,7 +720,7 @@
       const owner = online && online.names[i] ? online.names[i] : '';
       const youTag = online && i === online.seat ? ' (you)' : '';
       m.innerHTML = (badge ? `<span class="badge ${badge[1]}">${badge[0]}</span>` : '') +
-        `<div class="portrait"><img src="assets/${d.img}.jpg" alt=""></div>` +
+        `<div class="portrait"><img src="assets/${d.img}.webp" alt=""></div>` +
         `<div class="nm">${esc(d.name)}</div>` + (owner ? `<div class="owner">${esc(owner)}${youTag}</div>` : '') +
         `<div class="where">${down ? '-' : esc(C.locName(s, p.loc))}</div>` + hpPips(p);
       m.title = d.ability + (s.rumors.length ? `\nNamed in ${sus[i]} of ${s.rumors.length} rumors.` : '');
@@ -888,7 +888,7 @@
 
   function openQuest(slot) {
     const q = game.quests[slot], def = C.questDef(q.id), s = game;
-    const art = def.img ? `<img class="quest-art" src="assets/${def.img}.jpg" alt="${esc(def.name)}">`
+    const art = def.img ? `<img class="quest-art" src="assets/${def.img}.webp" alt="${esc(def.name)}">`
       : (window.CitadelMissions ? `<div class="mc-modal">${window.CitadelMissions.art(def)}</div>` : `<div class="quest-plate">${esc(def.name)}</div>`);
     const canMove = !s.over && mine() && s.actionsLeft > 0 && s.party[s.active].loc !== slot;
     openModal(
@@ -1277,18 +1277,17 @@
     Snd.play('deny');
   }
 
-  // ---------- painted card faces (assets/cards/<suit>.jpg and shadow.jpg) ----------
+  // ---------- painted card faces (assets/cards/<suit>.webp or .jpg, and shadow) ----------
   // Each is used only once its file is known to load, so a suit without a painting keeps the plain card design.
+  // handArt[suit] and shadowArt.url hold the resolved image URL (versioned, WebP preferred, JPG accepted).
   const handArt = {};
-  const shadowArt = { ok: false };
-  const ART_V = (Missions && Missions.artVersion) || '1';          // same cache-busting version as the mission paintings
-  const cardUrl = name => 'assets/cards/' + name + '.jpg?v=' + ART_V;
-  ['blade', 'shield', 'scroll', 'boot'].forEach(suit => {
-    const i = new Image();
-    i.onload = () => { handArt[suit] = true; if (game) render(); };
-    i.src = cardUrl(suit);
-  });
-  { const i = new Image(); i.onload = () => { shadowArt.ok = true; }; i.src = cardUrl('shadow'); }
+  const shadowArt = { url: '' };
+  if (Missions && Missions.resolveImage) {
+    ['blade', 'shield', 'scroll', 'boot'].forEach(suit => {
+      Missions.resolveImage('assets/cards/' + suit).then(f => { if (f) { handArt[suit] = f.url; if (game) render(); } });
+    });
+    Missions.resolveImage('assets/cards/shadow').then(f => { if (f) shadowArt.url = f.url; });
+  }
 
   // ---------- boot ----------
   function startFrom(g) {

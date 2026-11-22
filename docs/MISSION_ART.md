@@ -9,14 +9,14 @@ generator such as Grok, then dropping the files in. No code changes are needed.
 | Mission | Art |
 |---|---|
 | Mend the Gates, Rescue the Scouts, Guard the Archives, Scout the Sea, Feed the Forge | painted (`assets/art/`) |
-| Hold the Pass, Recover the Banner, Seek the Relic Blade, Defend the Walls | painted full cards (`assets/quest-*.jpg`) |
+| Hold the Pass, Recover the Banner, Seek the Relic Blade, Defend the Walls | painted full cards (`assets/quest-*.webp`) |
 | Mountain Watch, Light the Beacons, Renew the Oath | painted (ssets/art/) |
 
 ## Two ways to supply a painting
 
 | | **A. Art only (recommended)** | **B. Full card** |
 |---|---|---|
-| File | `assets/art/<id>.jpg` | `assets/card/<id>.jpg` |
+| File | `assets/art/<id>.webp` | `assets/card/<id>.webp` |
 | What it is | The illustration only: no text, no frame | A complete card with frame, title and objective painted in, like the four existing cards |
 | Shape | **Portrait 2:3** (best), for example 1024x1536 or 671x1000. Square (1:1) also works | Portrait 2:3, for example 784x1168 or 1024x1536 |
 | What the game adds | The gold frame, title, objective text, deadline, suit and progress bar | Only the deadline, suit and progress chips |
@@ -27,7 +27,7 @@ four painted cards. In the board's mission windows and the expedition view the c
 A square painting is placed inside the gold frame instead.
 
 If a mission has an art-only painting (A), it is used; the full-card file (B) is only looked for when there is no art-only one.
-Use JPG, aim for under 400 KB each so the page stays fast, and keep file names in lower case.
+Save the file as a **.jpg or .webp** with the exact name shown (the game looks for `.webp` first, then `.jpg`, so a JPG works the moment it is saved). Keep file names in lower case. To make new paintings smaller, run `tools\optimize-art.ps1` (see below). Aim for under about 200 KB each.
 
 If a file is missing, the generated scene is shown instead, so you can add paintings one at a time.
 
@@ -35,14 +35,14 @@ If a file is missing, the generated scene is shown instead, so you can add paint
 
 | Mission | id | Art-only file | Full-card file |
 |---|---|---|---|
-| Scout the Sea | `sea` | `assets/art/sea.jpg` | `assets/card/sea.jpg` |
-| Mountain Watch | `mountains` | `assets/art/mountains.jpg` | `assets/card/mountains.jpg` |
-| Light the Beacons | `beacons` | `assets/art/beacons.jpg` | `assets/card/beacons.jpg` |
-| Guard the Archives | `archives` | `assets/art/archives.jpg` | `assets/card/archives.jpg` |
-| Mend the Gates | `gates` | `assets/art/gates.jpg` | `assets/card/gates.jpg` |
-| Rescue the Scouts | `scouts` | `assets/art/scouts.jpg` | `assets/card/scouts.jpg` |
-| Feed the Forge | `forge` | `assets/art/forge.jpg` | `assets/card/forge.jpg` |
-| Renew the Oath | `oath` | `assets/art/oath.jpg` | `assets/card/oath.jpg` |
+| Scout the Sea | `sea` | `assets/art/sea.webp` | `assets/card/sea.webp` |
+| Mountain Watch | `mountains` | `assets/art/mountains.webp` | `assets/card/mountains.webp` |
+| Light the Beacons | `beacons` | `assets/art/beacons.webp` | `assets/card/beacons.webp` |
+| Guard the Archives | `archives` | `assets/art/archives.webp` | `assets/card/archives.webp` |
+| Mend the Gates | `gates` | `assets/art/gates.webp` | `assets/card/gates.webp` |
+| Rescue the Scouts | `scouts` | `assets/art/scouts.webp` | `assets/card/scouts.webp` |
+| Feed the Forge | `forge` | `assets/art/forge.webp` | `assets/card/forge.webp` |
+| Renew the Oath | `oath` | `assets/art/oath.webp` | `assets/card/oath.webp` |
 
 ## The look to match
 
@@ -61,42 +61,42 @@ with red torches; skies are heavy and overcast; the palette is mostly black, sla
 Paste the style block first, then one of these. Ask for a **vertical (portrait, 2:3) image**, and keep the title area at the
 top and the lower fifth fairly calm, because the card's title and objective sit over the top and bottom of the painting.
 
-**sea** `assets/art/sea.jpg`
+**sea** `assets/art/sea.webp`
 > A storm-black sea at night. A fleet of black-sailed warships with tiny lanterns advances on a rocky coast, seen from
 > a cliff-top watchtower in the foreground where a lone sentry in a blue cloak holds a spyglass. Towering waves, a
 > pale moon breaking through storm clouds, a faint streak of lightning on the horizon.
 
-**mountains** `assets/art/mountains.jpg`
+**mountains** `assets/art/mountains.webp`
 > A snow-capped mountain peak at dusk with a stone signal tower on its summit, a great beacon fire burning there and
 > throwing orange light across the snow. A soldier in dark armor kneels in the foreground feeding the flames, smoke
 > and sparks rising into a violet sky, jagged peaks fading into haze behind.
 
-**beacons** `assets/art/beacons.jpg`
+**beacons** `assets/art/beacons.webp`
 > A chain of beacon fires burning on hilltops stretching into the distance under a starry night sky, each one smaller
 > and hazier than the last. In the foreground a ruined watchtower with a defender in a blue cloak lighting the nearest
 > beacon, a river catching the firelight, a cold moon above.
 
-**archives** `assets/art/archives.jpg`
+**archives** `assets/art/archives.webp`
 > The great library of a besieged citadel on fire. Towering shelves of books and scrolls, a tall arched window
 > showing a night sky, flames creeping along the floor. Scholars and soldiers in dark cloaks carry armfuls of scrolls
 > to safety, burning pages and embers drifting upward, shafts of cold light cutting through the smoke.
 
-**gates** `assets/art/gates.jpg`
+**gates** `assets/art/gates.webp`
 > The shattered main gate of a stone fortress at night in the rain, the iron portcullis bent and broken. Masons and
 > blacksmiths in dark leather work by torchlight, one swinging a heavy hammer with a shower of sparks, soldiers in
 > blue-black cloaks holding the line behind them, wet stone glistening, shadow forces gathering in the distance.
 
-**scouts** `assets/art/scouts.jpg`
+**scouts** `assets/art/scouts.webp`
 > Three mounted scouts lost in a dense pine forest thick with cold fog at night, one riding ahead holding a single
 > lantern whose warm glow is the only color in the scene. Shafts of pale moonlight through the trees, faint
 > firefly-like embers, a narrow track vanishing into mist, a sense of being watched.
 
-**forge** `assets/art/forge.jpg`
+**forge** `assets/art/forge.webp`
 > The citadel armoury forge at night. A massive stone furnace blazing orange, a broad-shouldered smith in a leather
 > apron hammering a glowing blade on an anvil, a shower of sparks, racks of swords and shields in the shadows, heat
 > shimmer in the air, soot and ash, the only light coming from the fire.
 
-**oath** `assets/art/oath.jpg`
+**oath** `assets/art/oath.webp`
 > Dawn in the great hall of the citadel. Rows of armored lords and knights kneel before a plain longsword raised
 > upright on a stone altar, a beam of golden sunrise falling on the blade. Tall blue and crimson banners hang from
 > the walls, dust motes glow in the light, solemn and heroic.
@@ -148,3 +148,15 @@ That is expected and harmless.
 - Keep the camera at a similar distance (a wide establishing shot with a figure in the foreground).
 - For option A the game crops the square to the frame window, so keep the important subject near the center.
 - If one image looks too bright next to the others, lower its brightness slightly before saving.
+
+## Making new paintings smaller
+
+`tools\optimize-art.ps1` converts every .jpg or .png under `assets/` into a smaller .webp next to it (about 25% smaller
+at the default quality, with no visible difference), using Edge or Chrome as the encoder so nothing needs installing:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File tools\optimize-art.ps1                    # convert, keep the originals
+powershell -ExecutionPolicy Bypass -File tools\optimize-art.ps1 -RemoveOriginals   # convert and delete the originals
+```
+
+It skips any image where WebP would not be smaller. Afterwards, raise `ART_VERSION` in `js/missions.js` by one.

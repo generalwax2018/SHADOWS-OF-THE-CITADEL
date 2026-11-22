@@ -4,9 +4,9 @@ Every mission, every hand card and the Shadow card now have paintings.
 
 | Art | Files |
 |---|---|
-| 12 missions | `assets/quest-*.jpg` (4 full painted cards) and `assets/art/<id>.jpg` (8 illustrations) |
-| Hand cards: Blade, Shield, Scroll, Boot | `assets/cards/<suit>.jpg` |
-| Shadow card | `assets/cards/shadow.jpg` |
+| 12 missions | `assets/quest-*.webp` (4 full painted cards) and `assets/art/<id>.webp` (8 illustrations) |
+| Hand cards: Blade, Shield, Scroll, Boot | `assets/cards/<suit>.webp` |
+| Shadow card | `assets/cards/shadow.webp` |
 
 Remaining ideas, none required:
 
@@ -21,7 +21,7 @@ Style block to paste first in any new prompt:
 > torchlight and ember accents, volumetric fog and smoke, dramatic rim lighting, weathered steel armor, deep blue-black
 > cloaks, worn stone and iron. Epic but grim. No text, no letters, no watermark, no border, no frame.
 
-1. Download the image yourself and save it with the exact name in the table above (mission paintings are tall 2:3 images,
+1. Download the image yourself and save it with the exact name in the table above (a .jpg works too; the game looks for .webp first, then .jpg) (mission paintings are tall 2:3 images,
    for example 1024x1536; hand cards are 500x745).
 2. Open `js/missions.js` and raise the number next to `ART_VERSION` by one. This makes every browser fetch the new image
    instead of a cached copy of an older one or of a missing file. (Or ask Claude to do it.)

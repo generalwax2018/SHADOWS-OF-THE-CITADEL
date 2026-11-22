@@ -1,0 +1,13 @@
+Artwork in this folder (board, mission cards and paintings, defender portraits, hand cards, the Shadow card and the
+social preview image)
+
+Copyright (c) 2026 generalwax2018. All rights reserved.
+
+This artwork is NOT covered by the MIT license that applies to the source code. You may view it as part of the game
+and run the game as published, but you may not copy, redistribute or reuse the images in other projects without
+permission from the copyright holder.
+
+Provenance: the images were created with AI image generation tools (Grok) from prompts written for this project, and
+then resized, cropped and compressed here. The legal status of AI-generated images varies by country and by tool, and
+the terms of the generating service apply. If you plan to sell or commercially publish this game, check those terms and
+the copyright rules where you live first.
