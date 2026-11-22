@@ -1,4 +1,4 @@
-﻿# Runs tests.html in headless Edge/Chrome and prints the results. No server or Node needed.
+# Runs tests.html in headless Edge/Chrome and prints the results. No server or Node needed.
 $browser = @(
   "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
   "C:\Program Files\Microsoft\Edge\Application\msedge.exe",

@@ -319,8 +319,18 @@
       M.attach(host, C.questDef('sea'));
       await new Promise(r => setTimeout(r, 50));
       check('an art-only painting is placed inside the frame window', !!host.querySelector('g[clip-path] image.art-photo'));
-      check('a full-card painting covers the whole card', !!host.querySelector('svg > image.card-photo'));
+      check('an art-only painting wins: the full-card file is not used when an illustration exists', !host.querySelector('image.card-photo'));
       host.remove();
+      // with no illustration, a full-card painting covers the whole card
+      M._probes[M.versioned('assets/art/sea.jpg')] = Promise.resolve(false);
+      const hostC = document.createElement('div');
+      hostC.innerHTML = M.art(C.questDef('sea'));
+      document.body.appendChild(hostC);
+      M.attach(hostC, C.questDef('sea'));
+      await new Promise(r => setTimeout(r, 80));
+      check('a full-card painting covers the whole card when there is no illustration', !!hostC.querySelector('svg > image.card-photo') && !hostC.querySelector('image.art-photo'));
+      hostC.remove();
+      M._probes[M.versioned('assets/art/sea.jpg')] = Promise.resolve(true);
 
       // tall paintings: full-bleed on cards, panning in the live windows
       M._probes[M.versioned('assets/art/mountains.jpg')] = Promise.resolve({ w: 671, h: 1000 });

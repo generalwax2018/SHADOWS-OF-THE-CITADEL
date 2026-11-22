@@ -26,7 +26,7 @@ How a portrait painting is shown: on the mission card it fills the whole card be
 four painted cards. In the board's mission windows and the expedition view the camera pans slowly down the painting.
 A square painting is placed inside the gold frame instead.
 
-If both files exist for a mission, the full card (B) covers the art-only version (A).
+If a mission has an art-only painting (A), it is used; the full-card file (B) is only looked for when there is no art-only one.
 Use JPG, aim for under 400 KB each so the page stays fast, and keep file names in lower case.
 
 If a file is missing, the generated scene is shown instead, so you can add paintings one at a time.

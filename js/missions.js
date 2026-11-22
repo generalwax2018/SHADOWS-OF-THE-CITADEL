@@ -376,8 +376,18 @@
       return im;
     };
     const artUrl = versioned(assets + 'art/' + def.id + '.jpg'), cardUrl = versioned(assets + 'card/' + def.id + '.jpg');
+    // An art-only painting wins. A full-card painting is only looked for when there is no art-only one, which also
+    // spares every page load a "not found" request per mission.
     probe(artUrl).then(r => {
-      if (!r || !svg.isConnected || svg.querySelector('.art-photo, .art-bleed')) return;
+      if (!svg.isConnected) return;
+      if (!r) {
+        probe(cardUrl).then(ok => {
+          if (!ok || !svg.isConnected || svg.querySelector('.card-photo')) return;
+          svg.appendChild(make('card-photo', cardUrl, 0, 0, 400, 600));
+        });
+        return;
+      }
+      if (svg.querySelector('.art-photo, .art-bleed')) return;
       if (isPortrait(r)) {
         // full-bleed: the painting fills the card and the frame's title and objective sit over it
         svg.classList.add('bleed');
@@ -386,10 +396,6 @@
       }
       const g = svg.querySelector('g[clip-path]');
       g.insertBefore(make('art-photo', artUrl, 28, 112, 344, 320), g.querySelector('.art-vignette'));
-    });
-    probe(cardUrl).then(ok => {
-      if (!ok || !svg.isConnected || svg.querySelector('.card-photo')) return;
-      svg.appendChild(make('card-photo', cardUrl, 0, 0, 400, 600));
     });
   }
 

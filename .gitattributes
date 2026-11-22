@@ -1,0 +1,6 @@
+# Text files are stored and checked out with LF line endings (no Windows CRLF conversion warnings).
+* text=auto eol=lf
+*.jpg binary
+*.jpeg binary
+*.png binary
+*.webp binary

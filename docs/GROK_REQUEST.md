@@ -10,7 +10,7 @@ Every mission, every hand card and the Shadow card now have paintings.
 
 Remaining ideas, none required:
 
-- **Card back** for a deck or draw pile, in the same style (Grok already made one in `legacy/shadows_of_the_citadel_refined.html`).
+- **Card back** for a deck or draw pile, in the same style as the hand cards.
 - **Replacing any painting:** see below.
 
 ## Replacing or adding a painting

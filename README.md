@@ -205,15 +205,14 @@ Every game has a seed. Enter one on the setup screen, or share a link like `inde
 | `js/sound.js` | synthesized sound effects and ambience (Web Audio, no audio files) |
 | `js/net.js` | WebRTC transport and compact invite/reply codes |
 | `js/online.js` | host (authoritative, runs bots) and guest sessions, no DOM |
-| `assets/` | board, quest cards, card back and defender portraits; `art/` and `card/` hold optional mission paintings |
+| `assets/` | board, quest cards and defender portraits; `art/` and `card/` hold optional mission paintings |
 | `docs/MISSION_ART.md` | how to render and add paintings for the generated missions, with prompts |
 | `docs/GROK_REQUEST.md` | art status (nothing outstanding) and how to replace a painting safely |
 | `assets/cards/` | painted hand cards (`blade`, `shield`, `scroll`, `boot`) and the Shadow card |
 | `tests.html` | engine unit tests plus a bot balance simulation |
 | `tests-online.html` | host/guest protocol tests over a real WebRTC loopback connection |
 | `js/selftest.js` | UI smoke test, loaded only with `#selftest` in the URL |
-| `tools/` | test runners and the one-off asset extraction script |
-| `legacy/` | the three earlier prototype versions, kept for reference |
+| `tools/` | the test runners (rules, UI, online) |
 
 Add `#seed=42` to the URL to start a reproducible game (useful for bug reports).
 
