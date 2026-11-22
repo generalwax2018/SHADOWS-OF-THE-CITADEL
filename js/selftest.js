@@ -512,7 +512,21 @@
     try { stats = JSON.parse(localStorage.getItem('citadel-stats-v1')); } catch (e) { /* ignore */ }
     check('win/loss record saved after the game ends', !!stats && stats.played >= 1, stats ? stats.played + ' played' : '');
     check('end modal offers a challenge link', !!btnByText($('modalCard'), /Copy challenge link/));
-    // suit powers rail
+    // board ambience
+    {
+      const st = document.getElementById('stage');
+      const layers = ['.torch', '.fog', '.glint', '.vignette', '.lantern', '.danger', 'canvas.embers'];
+      check('the board has its ambience layers', layers.every(q => !!st.querySelector(q)));
+      check('ambience never blocks clicks', [...st.querySelectorAll('.amb, .amb > *')].every(n => getComputedStyle(n).pointerEvents === 'none'));
+      const A = window.CitadelAmbience;
+      A.update({ siege: 10, black: 0, storm: 2 });
+      check('high siege puts the board in danger', st.classList.contains('in-danger') && st.dataset.storm === '2');
+      A.update({ siege: 1, black: 0, storm: 0 });
+      check('and the danger clears again', !st.classList.contains('in-danger'));
+      A.setReduced(true);
+      check('reduced motion stills the ambience', st.classList.contains('amb-still') && A._state.raf === 0);
+      A.setReduced(false);
+    }    // suit powers rail
     {
       const rail = document.getElementById('powers');
       check('the suit-power rail lists four powers and the ward', !!rail && rail.querySelectorAll('.pw').length === 5 && /Charge/.test(rail.textContent) && /Swift/.test(rail.textContent) && /Ward/.test(rail.textContent));

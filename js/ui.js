@@ -29,6 +29,7 @@
     html.classList.toggle('full-motion', SET.motion === 'full');
     html.classList.toggle('large-text', SET.text === 'large');
     if (window.CitadelFx && window.CitadelFx.setReduced) window.CitadelFx.setReduced(reduced);
+    if (window.CitadelAmbience) window.CitadelAmbience.setReduced(reduced);
     ui.autoExp = !!SET.auto;
   }
   // ---------- crash guard ----------
@@ -1352,6 +1353,7 @@
     const kind = s.siege >= 8 ? 'storm' : s.siege >= 4 ? 'rain' : 'clear';
     $('weatherLabel').textContent = kind === 'storm' ? 'Storm' : kind === 'rain' ? 'Rain' : 'Clear';
     $('dim').style.opacity = Math.min(0.55, C.count(s, 'black') * 0.09 + (kind === 'storm' ? 0.15 : 0)).toFixed(2);
+    if (window.CitadelAmbience) window.CitadelAmbience.update({ siege: s.siege, black: C.count(s, 'black'), storm: kind === 'storm' ? 2 : kind === 'rain' ? 1 : 0 });
     if (kind === weather.kind) return;
     weather.kind = kind;
     startRain();
@@ -1646,6 +1648,7 @@
   $('btnSettings').onclick = openSettings;
 
   if (Missions) Missions.installDefs();
+  if (window.CitadelAmbience) window.CitadelAmbience.init($('stage'));
   applySettings();
   buildStatic();
   buildWindows();

@@ -178,6 +178,9 @@ innocent wrongly accused). Events that happen together queue up one after anothe
 falls behind the game. The cards never block clicks, and the **Chronicle** panel on the right still records everything
 for later review.
 
+### Board ambience
+The board has living light (js/ambience.js): flickering torchlight on the castle and wheel, drifting fog, gold glints sweeping over the frames, a lantern that follows your cursor, embers rising from the siege engines as they gather, and a red glow at the edges when the Citadel is in danger. It is decoration only, never blocks clicks, and reduced motion keeps the lighting but stops the movement.
+
 ### Sound and motion
 All sound is synthesized in the browser (bells, thuds, a Shadow swell, thunder, a wind bed that follows the weather),
 so there are no audio files to license. Use the **Sound** button to mute. Animations (token travel, swords seating
