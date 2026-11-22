@@ -574,3 +574,27 @@ label.check { display: flex; gap: 8px; align-items: center; margin: 12px 0 0; fo
 .sr-card.art { background-color: #0c0612; background-size: cover; background-position: center; border-color: #7a4aa8; box-shadow: 0 1cqw 3cqw #000, 0 0 3cqw rgba(140,80,220,.45); }
 .sr-card.art small { color: #c9a0f0; }
 .sr-card.art b { text-shadow: 0 0 1.4cqw #000; }
+
+/* ======================= the chronicle: a big centered card for major events ======================= */
+.chronicle { position: absolute; left: 50%; top: 56%; transform: translate(-50%, -50%); z-index: 9; pointer-events: none; width: 66%; display: flex; justify-content: center; }
+.chron {
+  display: flex; align-items: center; gap: 2.4cqw; max-width: 100%; padding: 1.8cqw 3cqw 1.8cqw 2.2cqw;
+  background: linear-gradient(160deg, rgba(30,23,16,.97), rgba(9,7,5,.98));
+  border: .4cqw solid #c9a66b; border-radius: 1.4cqw;
+  box-shadow: 0 2.4cqw 7cqw #000, 0 0 5cqw rgba(201,166,107,.35), inset 0 0 0 .12cqw rgba(255,235,190,.18);
+  animation: chronIn .38s cubic-bezier(.2,1.4,.4,1) both;
+}
+.chron.lose { border-color: #d0584a; box-shadow: 0 2.4cqw 7cqw #000, 0 0 5cqw rgba(220,70,50,.4), inset 0 0 0 .12cqw rgba(255,160,140,.16); }
+.chron.leave { animation: chronOut .28s ease-in forwards; }
+.chron-icon { flex: none; width: 8cqw; height: 8cqw; padding: 1.7cqw; border-radius: 50%; color: #f4dfa4; background: radial-gradient(circle at 35% 30%, #4a3a1e, #14100a); border: .3cqw solid #8a6f3a; box-shadow: 0 0 2.5cqw rgba(240,216,154,.35); }
+.chron.lose .chron-icon { color: #ffb0a0; background: radial-gradient(circle at 35% 30%, #5a2620, #160a08); border-color: #a8443a; box-shadow: 0 0 2.5cqw rgba(255,100,80,.4); }
+.chron-icon svg { width: 100%; height: 100%; display: block; }
+.chron-body { min-width: 0; }
+.chron-body b { display: block; font: 700 3.3cqw/1.1 Georgia, serif; letter-spacing: .04em; color: #f6e8c6; text-shadow: 0 .2cqw 1cqw #000; }
+.chron.lose .chron-body b { color: #ffd2c6; }
+.chron-body p { margin: .7cqw 0 0; font-size: 1.9cqw; line-height: 1.35; color: #e2d6bc; max-width: 40cqw; }
+@keyframes chronIn { from { opacity: 0; transform: scale(.6); } to { opacity: 1; transform: none; } }
+@keyframes chronOut { to { opacity: 0; transform: scale(.94) translateY(1.5cqw); } }
+/* the turn banner moves up so it never sits under a chronicle card */
+.banner { top: 30%; }
+@media (max-width: 760px) { .chron-icon { width: 11cqw; height: 11cqw; padding: 2.3cqw; } .chron-body b { font-size: 4.4cqw; } .chron-body p { font-size: 2.7cqw; } }

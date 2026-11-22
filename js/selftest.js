@@ -342,6 +342,51 @@
       check('missions with their own painted card are left alone', !hostP.querySelector('image'));
     }
 
+    // the chronicle: a big centered card for major events
+    {
+      const D = H.describeEvent;
+      const cases = [
+        ['Rescue the Scouts is complete! A white sword is seated and the siege falls back.', 'win', 'complete'],
+        ['Defend the Walls has failed! A black sword is seated.', 'lose', 'failed'],
+        ['Shadow: a siege engine rolls up. (+1)', 'lose', 'siege'],
+        ['Shadow: a full assault. +2 siege engines.', 'lose', 'siege'],
+        ['Shadow: the Gate opens. A black sword is seated.', 'lose', 'black'],
+        ['Captain Veyra advances Hold the Pass: +4 (4/13).', 'win', 'progress'],
+        ['Lord Harren is wounded (2/3).', 'lose', 'wound'],
+        ['The Berserker has fallen! A black sword is seated.', 'lose', 'fallen'],
+        ['Sabotage! The enemy slips closer. +1 siege engine.', 'lose', 'sabotage'],
+        ['Scout Elira is the Traitor! Cast out of the Citadel. A white sword is seated.', 'win', 'traitor'],
+        ['Mage-Knight is innocent! Shaken by the accusation, they lose their next turn. A black sword is seated.', 'lose', 'wrong']
+      ];
+      const badMap = cases.filter(([t, c, k]) => { const d = D({ text: t, cls: c }); return !d || d.type !== k || !d.icon || !d.title; }).map(c => c[2]);
+      check('every major engine event maps to a chronicle card', badMap.length === 0, badMap.join(','));
+      check('a progress card shows the amount gained', D({ text: 'X advances Y: +4 (4/13).', cls: 'win' }).title === 'Mission Progress +4');
+      check('lines that only set up an event produce no card', D({ text: 'Shadow: an arrow finds Lord Harren.', cls: 'lose' }) === null);
+
+      H.clearChronicle();
+      H.chronicle(D({ text: 'Shadow: a siege engine rolls up. (+1)', cls: 'lose' }));
+      const cbox = document.getElementById('chronicle');
+      check('a chronicle card appears with an icon, a title and a description', !!cbox.querySelector('.chron .chron-icon svg') && /Siege/.test(cbox.querySelector('b').textContent) && cbox.querySelector('p').textContent.length > 8);
+      check('the chronicle never blocks clicks', getComputedStyle(cbox).pointerEvents === 'none');
+      for (let i = 0; i < 10; i++) H.chronicle(D({ text: 'Lord Harren is wounded (2/3).', cls: 'lose' }));
+      check('the chronicle queue stays short', H.chron.q.length <= 3, String(H.chron.q.length));
+      H.clearChronicle();
+      H.chronicle(D({ text: 'Defend the Walls has failed! A black sword is seated.', cls: 'lose' }));
+      const shownAtOnce = !!cbox.querySelector('.chron');
+      await new Promise(r => setTimeout(r, 2500));
+      check('the card dismisses itself after about two seconds', shownAtOnce && !cbox.querySelector('.chron'));
+
+      // a real action in the game produces a card
+      H.clearChronicle();
+      const gx = H.game, px = gx.party[gx.active], sx = gx.quests.findIndex(Boolean);
+      if (!gx.over && sx >= 0) {
+        px.loc = sx; gx.actionsLeft = 2; px.hand = [{ id: 8901, suit: C.questDef(gx.quests[sx].id).suit }];
+        C.contribute(gx, [8901]); H.render();
+        check('playing cards on a mission shows a chronicle card', /Progress|Complete/.test(cbox.textContent), cbox.textContent.slice(0, 60));
+        H.clearChronicle(); H.closeExpedition(true);
+      }
+    }
+
     // save survives reload shape
     let saved = null;
     try { saved = JSON.parse(localStorage.getItem('citadel-save-v1')); } catch (e) { /* ignore */ }

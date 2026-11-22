@@ -746,10 +746,80 @@
     for (let i = ui.shownLog; i < game.log.length; i++) {
       const e = game.log[i];
       box.appendChild(el('div', e.cls, esc(e.text)));
-      if (e.cls === 'win' || e.cls === 'lose') toast(e.text, e.cls);
+      // major events get the big centered card (not on the first render of a game, so a loaded game does not replay its history)
+      if ((e.cls === 'win' || e.cls === 'lose') && ui.prev && !ui.preview) { const d = describeEvent(e); if (d) chronicle(d); }
     }
     ui.shownLog = game.log.length;
     box.scrollTop = box.scrollHeight;
+  }
+
+  // ---------- the chronicle: a large centered card for major events ----------
+  // The log panel still records everything for later review; this card makes sure everyone sees what just happened.
+  const CI = {
+    siege:    '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 21V8h2.500V5H9v3h2V5h2v3h2V5h2.500v3H20v13zM10 21v-5a2 2 0 014 0v5z" fill-rule="evenodd"/></svg>',
+    sword:    '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.500 2.500 21.500 4.500 11 15 9 13z"/><path d="M8 14l2 2-3.500 3.500a1.400 1.400 0 0 1-2-2z"/><path d="M12.500 16.500l1 1-2 2-1-1z"/></svg>',
+    progress: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3l8 9h-5v9H9v-9H4z"/></svg>',
+    complete: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3 6.500 7 .8-5.200 4.800 1.500 7L12 17.500 5.700 21l1.500-7L2 9.300l7-.8z"/></svg>',
+    failed:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.200" stroke-linecap="round"><path d="M5 5l14 14M19 5L5 19"/></svg>',
+    wound:    '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8 8 5.500 11.500 5.500 15a6.500 6.500 0 0013 0c0-3.500-2.500-7-6.500-13z"/></svg>',
+    skull:    '<svg viewBox="0 0 24 24" fill="currentColor" fill-rule="evenodd"><path d="M12 2a8 8 0 00-8 8c0 3 1.500 5 3 6v4h3v-2h4v2h3v-4c1.500-1 3-3 3-6a8 8 0 00-8-8zM9 11a2 2 0 100 4 2 2 0 000-4zm6 0a2 2 0 100 4 2 2 0 000-4z"/></svg>',
+    eye:      '<svg viewBox="0 0 24 24" fill="currentColor" fill-rule="evenodd"><path d="M12 5C6 5 2 12 2 12s4 7 10 7 10-7 10-7-4-7-10-7zm0 11a4 4 0 110-8 4 4 0 010 8z"/><circle cx="12" cy="12" r="2"/></svg>',
+    heart:    '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21s-8-5-8-11a4.500 4.500 0 018-2.500A4.500 4.500 0 0120 10c0 6-8 11-8 11z"/></svg>',
+    hourglass: HOURGLASS.replace('<svg ', '<svg fill="currentColor" ')
+  };
+  const CHRON_PRIORITY = { complete: 3, failed: 3, fallen: 3, traitor: 3, wrong: 2, black: 2, siege: 2, sabotage: 2, wound: 1, progress: 1, rest: 1, dread: 1, whisper: 1, other: 1 };
+
+  // Turns one engine log entry into a card, or null for lines that are not worth a card.
+  function describeEvent(e) {
+    const t = String(e.text || ''), tone = e.cls === 'win' ? 'win' : 'lose';
+    const clean = t.replace(/^Shadow:\s*/, '').replace(/^./, c => c.toUpperCase());
+    const card = (type, icon, title, text, tn) => ({ type, icon: CI[icon], title, text: text || clean, tone: tn || tone });
+    let m;
+    if (/ is complete!/.test(t)) return card('complete', 'complete', 'Mission Complete', clean, 'win');
+    if (/ has failed!/.test(t)) return card('failed', 'failed', 'Mission Failed', clean, 'lose');
+    if (/ is the Traitor!/.test(t)) return card('traitor', 'eye', 'The Traitor Is Unmasked', clean, 'win');
+    if (/ is innocent!/.test(t)) return card('wrong', 'failed', 'Wrong Accusation', clean, 'lose');
+    if (/ has fallen!/.test(t)) return card('fallen', 'skull', 'A Defender Has Fallen', clean, 'lose');
+    if (/^Sabotage/.test(t)) return card('sabotage', 'eye', 'Sabotage!', clean, 'lose');
+    if (/Gate opens/.test(t)) return card('black', 'sword', 'The Gate Opens', clean, 'lose');
+    if (/siege engine|full assault/i.test(t)) return card('siege', 'siege', /assault/i.test(t) ? 'Full Assault' : 'Siege Engine', clean, 'lose');
+    if ((m = /advances (.+?): \+(\d+)/.exec(t))) return card('progress', 'progress', 'Mission Progress +' + m[2], clean, 'win');
+    if (/^Rest at the Citadel/.test(t)) return card('rest', 'heart', 'Rest at the Citadel', clean, 'win');
+    if (/is wounded/.test(t)) return card('wound', 'wound', 'Wounded', clean, 'lose');
+    if (/dread falls/i.test(t)) return card('dread', 'hourglass', 'Dread', clean, 'lose');
+    if (/whisper/i.test(t)) return card('whisper', 'eye', 'A Whisper in the Dark', clean, 'lose');
+    if (/an arrow finds|Traitor strikes from within/.test(t)) return null;      // the next line says what it did
+    return card('other', e.cls === 'win' ? 'complete' : 'wound', e.cls === 'win' ? 'Well Done' : 'Misfortune', clean);
+  }
+
+  ui.chron = { q: [], busy: false, timer: 0 };
+  function chronicle(d) {
+    const c = ui.chron;
+    c.q.push(d);
+    while (c.q.length > 3) {                      // keep the queue short: drop the least important, oldest first
+      let k = 0;
+      c.q.forEach((x, i) => { if ((CHRON_PRIORITY[x.type] || 1) < (CHRON_PRIORITY[c.q[k].type] || 1)) k = i; });
+      c.q.splice(k, 1);
+    }
+    pumpChronicle();
+  }
+  function pumpChronicle() {
+    const c = ui.chron, box = $('chronicle');
+    if (c.busy || !c.q.length || !box) return;
+    c.busy = true;
+    const d = c.q.shift();
+    box.innerHTML = `<div class="chron ${d.tone} t-${d.type}" role="status"><div class="chron-icon">${d.icon}</div>` +
+      `<div class="chron-body"><b>${esc(d.title)}</b><p>${esc(d.text)}</p></div></div>`;
+    const card = box.firstChild, hold = c.q.length >= 2 ? 1300 : 2000;
+    c.timer = setTimeout(() => {
+      card.classList.add('leave');
+      c.timer = setTimeout(() => { box.innerHTML = ''; c.busy = false; pumpChronicle(); }, 280);
+    }, hold);
+  }
+  function clearChronicle() {
+    const c = ui.chron;
+    clearTimeout(c.timer); c.q = []; c.busy = false;
+    const box = $('chronicle'); if (box) box.innerHTML = '';
   }
 
   function toast(text, cls) {
@@ -1225,6 +1295,7 @@
     game = g;
     ui.selectedSlot = null; ui.picked = []; ui.shownLog = 0; ui.prev = null; ui.endShown = false; ui.expKey = null;
     closeExpedition(true);
+    clearChronicle();
     $('log').innerHTML = '';
     weather.kind = 'clear';
     flash('');
@@ -1283,7 +1354,7 @@
   }
 
   // test hook
-  window.__citadel = { get game() { return game; }, render, startFrom, mw, openExpedition, closeExpedition, handArt };
+  window.__citadel = { get game() { return game; }, render, startFrom, mw, openExpedition, closeExpedition, handArt, describeEvent, chronicle, clearChronicle, chron: ui.chron };
   if (/selftest/.test(location.hash)) {
     const t = document.createElement('script');
     t.src = 'js/selftest.js';

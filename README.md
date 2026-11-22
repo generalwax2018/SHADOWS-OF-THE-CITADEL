@@ -155,6 +155,14 @@ plays at a similar difficulty. Your game autosaves in the browser, and your win/
 ### Keys
 `1`-`7` select a card, `P` or `Enter` play, `G` gather, `R` rest, `H` hint, `E` end turn.
 
+### The chronicle
+Major events appear as a large card in the middle of the board, with an icon, a title and a plain description, then
+dismiss themselves after about two seconds: a siege engine rolling up, a black or white sword being seated, progress on a
+mission, a mission completed or failed, a defender wounded or fallen, sabotage, and the Traitor being unmasked (or an
+innocent wrongly accused). Events that happen together queue up one after another, and the queue stays short so it never
+falls behind the game. The cards never block clicks, and the **Chronicle** panel on the right still records everything
+for later review.
+
 ### Sound and motion
 All sound is synthesized in the browser (bells, thuds, a Shadow swell, thunder, a wind bed that follows the weather),
 so there are no audio files to license. Use the **Sound** button to mute. Animations (token travel, swords seating
