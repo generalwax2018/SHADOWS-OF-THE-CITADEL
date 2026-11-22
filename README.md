@@ -95,6 +95,9 @@ standing there. Select a card to open it full size, or to move there.
 
 - Four missions use the painted cards. The other eight have generated illustrations that move: beacon fires flicker,
   the sea rolls under a storm, the forge throws sparks, fog drifts through the pines, banners sway.
+- **Replace the generated art with paintings:** drop an image at `assets/art/<id>.jpg` (illustration only, the game adds
+  the frame and text) or `assets/card/<id>.jpg` (a complete card) and it is used automatically. See
+  [docs/MISSION_ART.md](docs/MISSION_ART.md) for the file names and ready-made prompts.
 - Cards animate as the game changes: a **+N** floats up when you make progress, a card pulses red when it has two
   rounds or fewer left, it is stamped **COMPLETE** and flips away when finished, and it is stamped **FAILED**, greys out
   and drops when its deadline passes. A new mission then flips into the empty place.
@@ -168,7 +171,8 @@ Every game has a seed. Enter one on the setup screen, or share a link like `inde
 | `js/sound.js` | synthesized sound effects and ambience (Web Audio, no audio files) |
 | `js/net.js` | WebRTC transport and compact invite/reply codes |
 | `js/online.js` | host (authoritative, runs bots) and guest sessions, no DOM |
-| `assets/` | board, quest cards, card back and defender portraits |
+| `assets/` | board, quest cards, card back and defender portraits; `art/` and `card/` hold optional mission paintings |
+| `docs/MISSION_ART.md` | how to render and add paintings for the generated missions, with prompts |
 | `tests.html` | engine unit tests plus a bot balance simulation |
 | `tests-online.html` | host/guest protocol tests over a real WebRTC loopback connection |
 | `js/selftest.js` | UI smoke test, loaded only with `#selftest` in the URL |

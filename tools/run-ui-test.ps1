@@ -19,4 +19,4 @@ if (-not $m.Success) { Write-Output "No self-test report found (script did not r
 $txt = $m.Value -replace '</div>', "`n" -replace '<[^>]+>', ''
 $txt = $txt -replace '&gt;', '>' -replace '&lt;', '<' -replace '&amp;', '&'
 $txt.Trim()
-if ($txt -match 'FAIL') { exit 1 }
+if ($txt -match '(?m)^FAIL ') { exit 1 }

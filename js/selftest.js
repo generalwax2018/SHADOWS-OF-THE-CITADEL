@@ -10,7 +10,7 @@
   const click = n => { n.dispatchEvent(new MouseEvent('click', { bubbles: true })); };
   const btnByText = (root, re) => [...root.querySelectorAll('button')].find(b => re.test(b.textContent));
 
-  function run() {
+  async function run() {
     const H = window.__citadel;
     const C = window.Citadel;
     let g = H.game;
@@ -212,6 +212,27 @@
         const cu = live().find(c => +c.dataset.slot === slotU);
         check('a mission with 2 rounds left is marked urgent', !!cu && cu.classList.contains('urgent'));
       }
+    }
+
+    // painting drop-ins: nothing is added for missing files, layers appear when files exist
+    {
+      await new Promise(r => setTimeout(r, 400));
+      check('missing paintings add no layers (no broken-image icons)', !document.querySelector('.mc-svg image'));
+      const M = window.CitadelMissions;
+      M._probes['assets/art/sea.jpg'] = Promise.resolve(true);
+      M._probes['assets/card/sea.jpg'] = Promise.resolve(true);
+      const host = document.createElement('div');
+      host.innerHTML = M.art(C.questDef('sea'));
+      document.body.appendChild(host);
+      M.attach(host, C.questDef('sea'));
+      await new Promise(r => setTimeout(r, 50));
+      check('an art-only painting is placed inside the frame window', !!host.querySelector('g[clip-path] image.art-photo'));
+      check('a full-card painting covers the whole card', !!host.querySelector('svg > image.card-photo'));
+      host.remove();
+      const hostP = document.createElement('div');
+      hostP.innerHTML = M.art(C.questDef('pass'));
+      M.attach(hostP, C.questDef('pass'));
+      check('missions with their own painted card are left alone', !hostP.querySelector('image'));
     }
 
     // save survives reload shape

@@ -392,6 +392,7 @@
       `<span class="mc-chip mc-timer" title="Rounds left">${HOURGLASS}<b></b></span></div>` +
       '<div class="mc-bottom"><div class="mc-meta"><span class="mc-prog"></span><span class="mc-tokens"></span></div><div class="mc-bar"><i></i></div></div>';
     b.addEventListener('click', () => onSlot(slot));
+    Missions.attach(b, def);
     if (!reduced) {
       b.addEventListener('pointermove', e => {
         if (e.pointerType === 'touch') return;
@@ -669,6 +670,7 @@
       '<div class="modal-actions"><button type="button" data-a="close">Close</button>' +
       (canMove ? '<button type="button" class="primary" data-a="go">Move here</button>' : '') + '</div>');
     $('modalCard').querySelector('[data-a="close"]').onclick = closeModal;
+    if (window.CitadelMissions) window.CitadelMissions.attach($('modalCard').querySelector('.mc-modal'), def);
     const go = $('modalCard').querySelector('[data-a="go"]');
     if (go) go.onclick = () => { closeModal(); act(() => perform('move', slot)); };
   }

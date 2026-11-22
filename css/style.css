@@ -441,3 +441,17 @@ label.check { display: flex; gap: 8px; align-items: center; margin: 12px 0 0; fo
 .mc:disabled { opacity: 1; cursor: default; }
 
 .mc-top { top: 20.5%; left: 5%; right: 5%; }
+
+/* painting drop-ins and extra scene motion */
+.mc-svg .art-photo { transform-box: fill-box; transform-origin: 50% 50%; animation: kenburns 18s ease-in-out infinite alternate; }
+.mc-svg .card-photo { transform-box: fill-box; transform-origin: 50% 40%; animation: kenburns 16s ease-in-out infinite alternate; }
+.mc-svg .mote { animation: mote 12s linear infinite; }
+@keyframes mote { 0% { transform: translate(0, 0); opacity: 0; } 20% { opacity: .9; } 100% { transform: translate(18px, -70px); opacity: 0; } }
+.mc-svg .smoke { animation: smoke 7s ease-out infinite; transform-box: fill-box; transform-origin: 50% 100%; }
+@keyframes smoke { 0% { transform: translateY(14px) scale(.7); opacity: 0; } 30% { opacity: .6; } 100% { transform: translateY(-40px) scale(1.5); opacity: 0; } }
+.mc-svg .rain { animation: rain .9s linear infinite; }
+@keyframes rain { from { transform: translate(0, -20px); opacity: 0; } 20% { opacity: .5; } to { transform: translate(-6px, 120px); opacity: 0; } }
+.mc-svg .shimmer { animation: shimmer 2.2s ease-in-out infinite alternate; }
+@keyframes shimmer { from { transform: translateY(0) scaleY(1); opacity: .05; } to { transform: translateY(-4px) scaleY(1.04); opacity: .12; } }
+.mc-svg .spray { animation: spray 2.6s ease-in-out infinite; }
+@keyframes spray { 0%, 100% { transform: translateY(0); opacity: .2; } 50% { transform: translateY(-5px); opacity: .8; } }
