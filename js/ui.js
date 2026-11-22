@@ -337,12 +337,167 @@
     if (!p.hand.length) hand.appendChild(el('div', 'empty-note', 'No cards. Gather supplies to draw more.'));
     $('handHint').textContent = `${p.hand.length}/${C.HAND_LIMIT}` + (def ? ` - ${def.name} likes ${C.SUIT_LABEL[def.suit]}` : '');
 
+    renderWindows();
     renderMissions();
     renderQuestList();
     renderActions();
     renderParty();
     renderRumors();
+    autoExpedition();
   }
+
+  // ---------- live mission windows (the board's two right-hand panels) ----------
+  // Each window shows one active mission as a living scene with its own weather. The mission the active defender
+  // is standing on comes first, then the one being inspected, then the most urgent. Scenes change as progress is
+  // made, and selecting a window pulls it open into the full expedition view.
+  const mw = { wins: [], exp: null };
+  ui.autoExp = (() => { try { return localStorage.getItem('citadel-auto-exp') !== '0'; } catch (e) { return true; } })();
+
+  function buildWindows() {
+    const ov = $('overlay');
+    ['top', 'bottom'].forEach(pos => {
+      const w = el('button', 'mwin ' + pos + ' empty');
+      w.type = 'button';
+      w.innerHTML = '<div class="mwin-stage"></div><div class="mwin-tokens"></div><div class="mwin-label"></div><span class="mwin-hint">Enter mission</span>';
+      ov.appendChild(w);
+      const rec = { el: w, stage: w.querySelector('.mwin-stage'), tokens: w.querySelector('.mwin-tokens'), label: w.querySelector('.mwin-label'), slot: null, qid: null, live: null };
+      w.addEventListener('click', () => { if (rec.slot !== null) { ui.selectedSlot = rec.slot; render(); openExpedition(rec.slot, w); } });
+      mw.wins.push(rec);
+    });
+  }
+
+  function focusSlots(s) {
+    const out = [];
+    const add = slot => { if (slot != null && slot >= 0 && s.quests[slot] && !out.includes(slot)) out.push(slot); };
+    add(s.party[s.active].loc);
+    add(ui.selectedSlot);
+    s.quests.map((q, i) => [q ? q.timer : 99, i]).sort((a, b) => a[0] - b[0]).forEach(x => add(x[1]));
+    return out.slice(0, 2);
+  }
+  const stormLevel = s => (s.siege >= 8 ? 2 : s.siege >= 4 ? 1 : 0);
+
+  function renderWindows() {
+    if (!Missions || !mw.wins.length) return;
+    const s = game, focus = focusSlots(s), fresh = !ui.prev;
+    const newLines = s.log.slice(Math.min(ui.shownLog, s.log.length));
+    mw.wins.forEach((w, i) => {
+      const slot = focus[i] == null ? null : focus[i], q = slot === null ? null : s.quests[slot];
+      w.el.classList.toggle('empty', !q);
+      if (!q) { if (w.live) { w.live.destroy(); w.live.el.remove(); w.live = null; w.qid = null; w.slot = null; } return; }
+      if (w.qid !== q.id) {
+        const old = w.live;
+        if (old) {
+          const oldName = C.questDef(w.qid).name;
+          if (newLines.some(l => l.text.indexOf(oldName + ' is complete') === 0)) old.flare();
+          old.el.classList.add('leaving');
+          setTimeout(() => { old.destroy(); old.el.remove(); }, 1050);
+        }
+        const lv = Missions.live(C.questDef(q.id));
+        if (!fresh && !reduced) lv.el.classList.add('entering');
+        w.stage.appendChild(lv.el);
+        if (!fresh && !reduced) setTimeout(() => lv.el.classList.remove('entering'), 1100);
+        w.live = lv; w.qid = q.id;
+      }
+      w.slot = slot;
+      w.live.update(q, { storm: stormLevel(s) });
+      const def = C.questDef(q.id), pct = Math.min(100, Math.round(q.progress / q.needed * 100));
+      w.label.innerHTML = `<b>${esc(def.name)}</b><span>${q.progress}/${q.needed} &middot; ${q.timer} rd</span><div class="mwin-bar"><i style="width:${pct}%"></i></div>`;
+      w.tokens.innerHTML = '';
+      s.party.forEach((p, k) => { if (p.loc === slot && p.alive && !p.exiled) { const t = el('span', 'mc-token' + (k === s.active ? ' active' : '')); t.style.backgroundImage = `url('${portraitUrl(k)}')`; t.title = playerLabel(k); w.tokens.appendChild(t); } });
+      w.el.setAttribute('aria-label', `${def.name}: ${q.progress} of ${q.needed}. Open mission view.`);
+    });
+  }
+
+  // ---------- expedition view ----------
+  // The mission window "pulls open" into a large, cinematic view of the mission. It opens by itself when the
+  // active defender goes on a mission (unless switched off) and closes when they come home.
+  function openExpedition(slot, fromEl) {
+    const s = game, q = s.quests[slot];
+    if (!q || !Missions) return;
+    if (mw.exp && mw.exp.slot === slot && mw.exp.qid === q.id) return;
+    closeExpedition(true);
+    const def = C.questDef(q.id), root = $('expedition');
+    root.innerHTML = '';
+    root.className = 'exp open';
+    const frame = el('div', 'exp-frame');
+    const lv = Missions.live(def);
+    frame.appendChild(lv.el);
+    frame.insertAdjacentHTML('beforeend',
+      `<div class="exp-top"><h3>${esc(def.name)}</h3><span class="mc-chip suit-${def.suit}">${ICONS[def.suit]} ${C.SUIT_LABEL[def.suit]} counts double</span><span class="mc-chip mc-timer" data-r="timer">${HOURGLASS}<b></b></span></div>` +
+      '<button type="button" class="exp-close ghost" aria-label="Return to the map">Return to the map (Esc)</button>' +
+      '<label class="exp-opt"><input type="checkbox" id="autoExp"> Go to a mission automatically</label>' +
+      `<div class="exp-bottom"><div class="obj">${esc(def.text)}</div><div class="who"></div>` +
+      '<div class="meter"><span data-r="prog"></span><div class="bar"><i></i></div><span data-r="left"></span></div></div>');
+    root.appendChild(frame);
+    const opt = frame.querySelector('#autoExp');
+    opt.checked = ui.autoExp;
+    opt.addEventListener('change', () => { ui.autoExp = opt.checked; try { localStorage.setItem('citadel-auto-exp', ui.autoExp ? '1' : '0'); } catch (e) { /* ignore */ } });
+    frame.querySelector('.exp-close').addEventListener('click', () => closeExpedition());
+    root.onclick = e => { if (e.target === root) closeExpedition(); };
+    mw.exp = { slot, qid: q.id, live: lv, frame, root };
+    updateExpedition();
+    Snd.play('expedition');
+    if (!reduced && fromEl && frame.animate) {
+      const a = fromEl.getBoundingClientRect(), b = frame.getBoundingClientRect();
+      if (b.width && a.width) frame.animate([
+        { transform: `translate(${a.left - b.left}px, ${a.top - b.top}px) scale(${a.width / b.width}, ${a.height / b.height})`, opacity: .55 },
+        { transform: 'none', opacity: 1 }], { duration: 650, easing: 'cubic-bezier(.2,.8,.2,1)' });
+    }
+    const first = frame.querySelector('.exp-close'); if (first) first.focus({ preventScroll: true });
+  }
+
+  function closeExpedition(instant) {
+    const e = mw.exp;
+    if (!e) return;
+    mw.exp = null;
+    const root = e.root;
+    const done = () => { e.live.destroy(); if (!mw.exp) { root.className = 'exp'; root.innerHTML = ''; } };
+    if (instant || reduced) { e.live.destroy(); if (!mw.exp) { root.className = 'exp'; root.innerHTML = ''; } return; }
+    root.classList.remove('open');
+    if (e.frame.animate) e.frame.animate([{ transform: 'none', opacity: 1 }, { transform: 'scale(.94)', opacity: 0 }], { duration: 300, easing: 'ease-in' });
+    setTimeout(done, 320);
+  }
+
+  function updateExpedition() {
+    const e = mw.exp;
+    if (!e) return;
+    const s = game, q = s.quests[e.slot];
+    if (!q || q.id !== e.qid) {
+      // the mission ended while it was open: show the outcome, then return to the map
+      if (!e.ending) {
+        e.ending = true;
+        const def = C.questDef(e.qid), newLines = s.log.slice(-8);
+        const won = newLines.some(l => l.text.indexOf(def.name + ' is complete') === 0);
+        e.live.flare();
+        e.frame.insertAdjacentHTML('beforeend', `<div class="exp-result ${won ? 'success' : 'fail'}"><b>${won ? 'COMPLETE' : 'FAILED'}</b></div>`);
+        Snd.play(won ? 'white' : 'black');
+        setTimeout(() => { if (mw.exp === e) closeExpedition(); }, 1700);
+      }
+      return;
+    }
+    e.live.update(q, { storm: stormLevel(s) });
+    const f = e.frame, pct = Math.min(100, Math.round(q.progress / q.needed * 100));
+    f.querySelector('.bar i').style.width = pct + '%';
+    f.querySelector('[data-r="prog"]').textContent = `${q.progress} / ${q.needed}`;
+    f.querySelector('[data-r="left"]').textContent = `${Math.max(0, q.needed - q.progress)} to go`;
+    f.querySelector('[data-r="timer"] b').textContent = `${q.timer} round${q.timer === 1 ? '' : 's'} left`;
+    const who = f.querySelector('.who'); who.innerHTML = '';
+    s.party.forEach((p, i) => { if (p.loc === e.slot && p.alive && !p.exiled) { const t = el('span', 'mc-token' + (i === s.active ? ' active' : '')); t.style.backgroundImage = `url('${portraitUrl(i)}')`; t.title = playerLabel(i); who.appendChild(t); } });
+  }
+
+  function autoExpedition() {
+    const s = game;
+    if (!s || ui.preview) return;
+    updateExpedition();
+    const loc = s.party[s.active].loc, key = s.active + ':' + loc + ':' + s.turn;
+    if (key === ui.expKey) return;
+    const firstOfGame = ui.expKey == null;
+    ui.expKey = key;
+    if (firstOfGame || s.over) return;
+    if (loc >= 0 && s.quests[loc] && ui.autoExp) openExpedition(loc, mw.wins.find(w => w.slot === loc) ? mw.wins.find(w => w.slot === loc).el : null);
+    else if (loc < 0 && mw.exp) closeExpedition();
+  }
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && mw.exp && $('modal').hidden) closeExpedition(); });
 
   // ---------- mission cards ----------
   const HOURGLASS = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h12v4l-5 6 5 6v4H6v-4l5-6-5-6z"/></svg>';
@@ -424,6 +579,7 @@
     }
     bar.style.width = pct + '%';
     card._prog = q.progress; card._pct = pct;
+    Missions.applyProgress(card.querySelector('.mc-svg'), q.progress / q.needed);
     card.querySelector('.mc-prog').textContent = `${q.progress} / ${q.needed}`;
     card.querySelector('.mc-timer b').textContent = q.timer;
     card.classList.toggle('urgent', q.timer <= 2);
@@ -667,9 +823,10 @@
       `<p>${esc(def.text)}</p>` +
       `<div class="kv"><span>Favoured suit</span><b>${suitIcon(def.suit)} ${C.SUIT_LABEL[def.suit]} (counts double)</b>` +
       `<span>Progress</span><b>${q.progress} / ${q.needed}</b><span>Deadline</span><b>${q.timer} round${q.timer === 1 ? '' : 's'}</b></div>` +
-      '<div class="modal-actions"><button type="button" data-a="close">Close</button>' +
+      '<div class="modal-actions"><button type="button" data-a="close">Close</button><button type="button" class="ghost" data-a="view">Mission view</button>' +
       (canMove ? '<button type="button" class="primary" data-a="go">Move here</button>' : '') + '</div>');
     $('modalCard').querySelector('[data-a="close"]').onclick = closeModal;
+    $('modalCard').querySelector('[data-a="view"]').onclick = () => { closeModal(); openExpedition(slot, null); };
     if (window.CitadelMissions) window.CitadelMissions.attach($('modalCard').querySelector('.mc-modal'), def);
     const go = $('modalCard').querySelector('[data-a="go"]');
     if (go) go.onclick = () => { closeModal(); act(() => perform('move', slot)); };
@@ -1050,7 +1207,8 @@
   // ---------- boot ----------
   function startFrom(g) {
     game = g;
-    ui.selectedSlot = null; ui.picked = []; ui.shownLog = 0; ui.prev = null; ui.endShown = false;
+    ui.selectedSlot = null; ui.picked = []; ui.shownLog = 0; ui.prev = null; ui.endShown = false; ui.expKey = null;
+    closeExpedition(true);
     $('log').innerHTML = '';
     weather.kind = 'clear';
     flash('');
@@ -1091,7 +1249,9 @@
   $('btnNew').onclick = openSetup;
   $('btnRules').onclick = () => openRules();
 
+  if (Missions) Missions.installDefs();
   buildStatic();
+  buildWindows();
   ui.fast = /selftest/.test(location.hash);
   const seedMatch = /seed=(\d+)/.exec(location.hash);
   if (seedMatch) {
@@ -1107,7 +1267,7 @@
   }
 
   // test hook
-  window.__citadel = { get game() { return game; }, render, startFrom };
+  window.__citadel = { get game() { return game; }, render, startFrom, mw, openExpedition, closeExpedition };
   if (/selftest/.test(location.hash)) {
     const t = document.createElement('script');
     t.src = 'js/selftest.js';

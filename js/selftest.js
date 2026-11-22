@@ -214,10 +214,72 @@
       }
     }
 
+    // live mission windows, progress-driven scenes and the expedition view
+    {
+      const Hh = H, M = window.CitadelMissions, mw = Hh.mw;
+      const wins = [...document.querySelectorAll('#overlay .mwin')];
+      check('the board has two live mission windows', wins.length === 2);
+      const shown = mw.wins.filter(w => w.live);
+      check('both windows show a mission scene with its own weather canvas', shown.length === 2 && shown.every(w => w.el.querySelector('.lv canvas')));
+      check('the two windows show different missions', shown.length === 2 && shown[0].qid !== shown[1].qid);
+
+      // the first window follows the active defender onto a mission
+      const gw = Hh.game;
+      const target = gw.quests.findIndex((q, i) => q && i !== mw.wins[0].slot);
+      Hh.closeExpedition(true);
+      gw.party[gw.active].loc = target; gw.actionsLeft = Math.max(1, gw.actionsLeft); Hh.render();
+      check('the first window switches to the mission the active defender stands on', mw.wins[0].qid === gw.quests[target].id);
+
+      // opening a window pulls it open into the expedition view
+      click(wins[0]);
+      const expEl = document.getElementById('expedition');
+      check('selecting a window opens the expedition view', expEl.classList.contains('open') && !!expEl.querySelector('.exp-frame .lv svg'));
+      check('the expedition shows the mission title and progress meter', /\d+ \/ \d+/.test(expEl.textContent) && expEl.querySelector('h3').textContent.length > 3);
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      check('Escape returns to the map', mw.exp === null);
+      await new Promise(r => setTimeout(r, 450));
+      check('the expedition overlay is gone after closing', !expEl.classList.contains('open') && expEl.innerHTML === '');
+
+      // every generated scene reacts to progress: nothing lit at 0, something lit at 95%
+      let reactive = true; const detail = [];
+      ['sea', 'mountains', 'beacons', 'archives', 'gates', 'scouts', 'forge', 'oath'].forEach(id => {
+        const lv = M.live(C.questDef(id));
+        document.body.appendChild(lv.el);
+        lv.update({ progress: 0, needed: 20, timer: 5 }, {});
+        const n0 = lv.el.querySelectorAll('[data-at].on').length;
+        lv.update({ progress: 19, needed: 20, timer: 5 }, {});
+        const n1 = lv.el.querySelectorAll('[data-at].on').length;
+        if (!(n1 > n0)) { reactive = false; detail.push(id); }
+        lv.destroy(); lv.el.remove();
+      });
+      check('all 8 generated scenes change as progress grows', reactive, detail.join(','));
+      const bl = M.live(C.questDef('beacons')); document.body.appendChild(bl.el);
+      bl.update({ progress: 10, needed: 20, timer: 5 }, {});
+      const lit = bl.el.querySelectorAll('.lit.on').length;
+      bl.update({ progress: 19, needed: 20, timer: 5 }, {});
+      check('beacons light one after another', lit >= 2 && bl.el.querySelectorAll('.lit.on').length > lit);
+      bl.destroy(); bl.el.remove();
+      const ol = M.live(C.questDef('oath')); document.body.appendChild(ol.el);
+      ol.update({ progress: 19, needed: 20, timer: 5 }, {});
+      check('knights kneel as the oath is renewed', ol.el.querySelectorAll('.kn.on').length >= 10);
+      ol.destroy(); ol.el.remove();
+      check('painted missions get a window scene too', !!M.live(C.questDef('pass')).el.querySelector('.lv-painted'));
+
+      // a mission that ends while its expedition is open shows the outcome
+      const ge = Hh.game; const slotE = ge.quests.findIndex(Boolean);
+      ge.party[ge.active].loc = slotE; ge.actionsLeft = 2; Hh.render();
+      Hh.openExpedition(slotE, null);
+      const qe = ge.quests[slotE]; qe.progress = qe.needed - 1;
+      ge.party[ge.active].hand = [{ id: 7501, suit: C.questDef(qe.id).suit }];
+      C.contribute(ge, [7501]); Hh.render();
+      check('finishing a mission inside the expedition shows COMPLETE', !!document.querySelector('#expedition .exp-result.success'));
+      Hh.closeExpedition(true);
+    }
+
     // painting drop-ins: nothing is added for missing files, layers appear when files exist
     {
       await new Promise(r => setTimeout(r, 400));
-      check('missing paintings add no layers (no broken-image icons)', !document.querySelector('.mc-svg image'));
+      check('missing paintings add no layers (no broken-image icons)', !document.querySelector('.mc-svg:not(.lv-painted) image'));
       const M = window.CitadelMissions;
       M._probes['assets/art/sea.jpg'] = Promise.resolve(true);
       M._probes['assets/card/sea.jpg'] = Promise.resolve(true);

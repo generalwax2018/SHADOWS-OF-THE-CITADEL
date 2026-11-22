@@ -111,6 +111,13 @@ Use the same scenes, with this wrapper (replace the title and objective for each
 Image generators often garble small text. If the title or objective comes out wrong, regenerate, or use option A
 for that mission instead.
 
+## Where the art appears
+
+A painting for a mission is used on its card, in the board's live mission windows and in the full-size expedition view,
+always with the mission's weather particles on top. The scenes that react to progress (beacons lighting, the gate being
+mended, knights kneeling) are part of the generated art, so when a painting replaces a generated scene the progress shows
+as a glow and a brighter, livelier atmosphere instead. Keep that in mind when choosing between art-only and full-card art.
+
 ## Adding the files
 
 1. Save each image with the exact file name from the table above, in the matching folder (`assets/art/` or

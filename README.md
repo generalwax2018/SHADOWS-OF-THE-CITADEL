@@ -103,6 +103,30 @@ standing there. Select a card to open it full size, or to move there.
   and drops when its deadline passes. A new mission then flips into the empty place.
 - On a phone the strip becomes a swipeable row.
 
+### Live mission windows and the expedition view
+The two panels on the right of the board are **live mission windows**. Each shows one active mission as a moving scene
+with its own weather: rain and lightning at sea, snow and embers on the peak, fog and fireflies in the forest, sparks
+at the forge, golden motes at the oath. The mission your defender is standing on comes first, then the one you are
+inspecting, then the most urgent. The storm on the board (from siege engines) adds rain and lightning to every window.
+
+The scenes change as you make progress, so you can see how a mission is going:
+
+| Mission | What you see as progress grows |
+|---|---|
+| Scout the Sea | the black sails are spotted one by one |
+| Mountain Watch | the signal fire grows and an answering beacon lights on the far ridge |
+| Light the Beacons | beacons light one after another along the hills |
+| Guard the Archives | the fire dies down and rescued scrolls fill the chest |
+| Mend the Gates | the portcullis bars are forged back and the broken slab is replaced |
+| Rescue the Scouts | the fog lifts and the riders reach the lights of home |
+| Feed the Forge | finished swords fill the rack |
+| Renew the Oath | the knights kneel one by one and the light grows |
+
+Click a window (or choose **Mission view** on a card) and it pulls open into a large **expedition view** with the mission's
+title, progress, deadline and the defenders on it. It opens by itself when a defender goes on a mission and closes
+when they come home. Press **Esc** or **Return to the map** to leave, and untick **Go to a mission automatically** to
+turn that off. When a mission ends while you are in it, you see **COMPLETE** or **FAILED** before returning to the map.
+
 Each mission costs progress and has a deadline in rounds.
 - **Complete** it: a white sword is seated, the siege falls back by 1, and every defender draws a card.
 - **Miss the deadline**: a black sword is seated.
@@ -167,7 +191,8 @@ Every game has a seed. Enter one on the setup screen, or share a link like `inde
 | `index.html`, `css/style.css` | the page and its styling |
 | `js/engine.js` | all the rules: pure logic, no DOM, seedable and saveable |
 | `js/ui.js` | renders engine state onto the painted board, sound/animation effects, lobby screens |
-| `js/missions.js` | mission card art: the paintings, plus generated animated SVG scenes for the rest |
+| `js/missions.js` | mission card art and live scenes: the paintings, plus generated animated SVG scenes driven by progress |
+| `js/fx.js` | weather and atmosphere particles (rain, snow, embers, sparks, fog, motes) for the mission windows |
 | `js/sound.js` | synthesized sound effects and ambience (Web Audio, no audio files) |
 | `js/net.js` | WebRTC transport and compact invite/reply codes |
 | `js/online.js` | host (authoritative, runs bots) and guest sessions, no DOM |

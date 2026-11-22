@@ -104,6 +104,7 @@
     fall()    { tone({ f: 330, f2: 82, dur: 0.9, vol: 0.28, type: 'sawtooth', lp: 600 }); noise({ freq: 200, dur: 0.6, vol: 0.2, delay: 0.1 }); },
     shadow()  { tone({ f: 196, f2: 174, dur: 0.9, vol: 0.12, type: 'sine', attack: 0.25 }); tone({ f: 207, f2: 185, dur: 0.9, vol: 0.1, type: 'sine', attack: 0.25 }); noise({ filter: 'bandpass', freq: 400, freq2: 900, q: 2, dur: 0.8, vol: 0.08, attack: 0.3 }); },
     turn()    { bell(523, 0.14, 0.9); },
+    expedition() { noise({ filter: 'bandpass', freq: 300, freq2: 2200, q: 1.1, dur: 0.55, vol: 0.18, attack: 0.15 }); tone({ f: 110, f2: 165, dur: 0.6, vol: 0.12, type: 'sine', attack: 0.2 }); },
     thunder() { noise({ freq: 260, freq2: 70, dur: 2.2, vol: 0.45, attack: 0.08 }); tone({ f: 55, f2: 40, dur: 1.8, vol: 0.2, type: 'sine', attack: 0.15 }); },
     exile()   { bell(660, 0.2, 1.2); tone({ f: 330, f2: 220, dur: 0.6, vol: 0.12, type: 'triangle', delay: 0.15 }); },
     win()     { [523, 659, 784, 1047, 1319].forEach((f, i) => bell(f, 0.18, 1.2, i * 0.16)); },
