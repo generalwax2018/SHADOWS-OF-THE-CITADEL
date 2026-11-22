@@ -136,7 +136,8 @@ as a glow and a brighter, livelier atmosphere instead. Keep that in mind when ch
 1. Save each image with the exact file name from the table above, in the matching folder (`assets/art/` or
    `assets/card/`). The folders already exist.
 2. Reload the game. The painting appears automatically on the mission card and in the full-size card view.
-3. To publish, commit the new files and push. With GitHub Pages the new art goes live in a minute or two.
+3. Raise `ART_VERSION` in `js/missions.js` by one whenever you add or replace a painting. Browsers and GitHub Pages cache images for minutes (even a missing file or a wrong one), and the version number forces a fresh copy.
+4. To publish, commit the new files and push. With GitHub Pages the new art goes live in a minute or two.
 
 The browser will show a "404" in its developer console for any mission that does not have a painting yet.
 That is expected and harmless.

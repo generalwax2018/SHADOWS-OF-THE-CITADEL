@@ -23,8 +23,9 @@ Paste the style block first, then the prompt.
 ## Saving it so the game can see it
 
 1. Download the image yourself and save it as exactly `assets/cards/boot.jpg` inside the project folder.
-2. Reload the game. Boot cards in the hand show the painting.
-3. Commit and push.
+2. Open js/missions.js and raise the number next to `ART_VERSION` by one (for example `'4'` becomes `'5'`). This makes every browser fetch the new image instead of a cached copy of an older one or of a missing file. (Or ask Claude to do it.)
+3. Reload the game. Boot cards in the hand show the painting.
+4. Commit and push.
 
 **Do not let an AI tool upload the file to GitHub for you.** It cannot send image files and instead commits a tiny text
 file with the right name that only says `BINARY_PLACEHOLDER`. That has already happened once and the placeholder had to

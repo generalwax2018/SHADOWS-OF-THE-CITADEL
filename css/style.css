@@ -571,6 +571,6 @@ label.check { display: flex; gap: 8px; align-items: center; margin: 12px 0 0; fo
 .card.art:hover { transform: translateY(-6px) scale(1.04); }
 .card.art.selected { box-shadow: 0 8px 18px rgba(0,0,0,.7), 0 0 12px currentColor; }
 .card.art.match::after { top: 4px; right: 5px; font-size: 13px; color: #ffe9a8; text-shadow: 0 0 6px #000; z-index: 2; }
-.sr-card.art { background: linear-gradient(rgba(8,4,14,.12), rgba(8,4,14,.55) 62%, rgba(8,4,14,.8)), url('../assets/cards/shadow.jpg') center / cover; border-color: #7a4aa8; box-shadow: 0 1cqw 3cqw #000, 0 0 3cqw rgba(140,80,220,.45); }
+.sr-card.art { background-color: #0c0612; background-size: cover; background-position: center; border-color: #7a4aa8; box-shadow: 0 1cqw 3cqw #000, 0 0 3cqw rgba(140,80,220,.45); }
 .sr-card.art small { color: #c9a0f0; }
 .sr-card.art b { text-shadow: 0 0 1.4cqw #000; }

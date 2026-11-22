@@ -339,6 +339,12 @@
   // ---------- painting drop-ins ----------
   // A missing <image> inside an SVG paints the browser's broken-image icon, so a layer is only added once
   // the file is known to load. Results are cached, so each file is requested at most once.
+  // Browsers and GitHub Pages cache images (including "not found" and wrong files) for minutes. Painting URLs carry
+  // this version, so changing it makes every browser fetch fresh copies. BUMP IT whenever a painting under
+  // assets/art, assets/card or assets/cards is added or replaced.
+  const ART_VERSION = '4';
+  const versioned = u => u + '?v=' + ART_VERSION;
+
   // A probe resolves to false (no such file) or {w, h} (its pixel size). A bare `true` counts as a square image.
   const probes = {};
   function probe(url) {
@@ -369,7 +375,7 @@
       im.setAttribute('preserveAspectRatio', 'xMidYMid slice');
       return im;
     };
-    const artUrl = assets + 'art/' + def.id + '.jpg', cardUrl = assets + 'card/' + def.id + '.jpg';
+    const artUrl = versioned(assets + 'art/' + def.id + '.jpg'), cardUrl = versioned(assets + 'card/' + def.id + '.jpg');
     probe(artUrl).then(r => {
       if (!r || !svg.isConnected || svg.querySelector('.art-photo, .art-bleed')) return;
       if (isPortrait(r)) {
@@ -439,7 +445,7 @@
 
     if (!def.img) {
       // optional painting drop-in (assets/art/<id>.jpg), shown over the generated scene
-      const url = assets + 'art/' + def.id + '.jpg';
+      const url = versioned(assets + 'art/' + def.id + '.jpg');
       probe(url).then(r => {
         if (!r || !el.isConnected || el.querySelector('.art-photo') || box.querySelector('.lv-art')) return;
         if (isPortrait(r)) {
@@ -484,5 +490,5 @@
     return { el: box, def, update, flare, destroy, fx };
   }
 
-  root.CitadelMissions = { art, attach, live, installDefs, applyProgress, SCENES, _probes: probes };
+  root.CitadelMissions = { art, attach, live, installDefs, applyProgress, SCENES, versioned, artVersion: ART_VERSION, _probes: probes };
 })(typeof window !== 'undefined' ? window : globalThis);
