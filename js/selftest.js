@@ -30,16 +30,21 @@
       check('blade, shield, scroll and boot cards show their paintings', cs.slice(0, 4).every(c => c.classList.contains('art')) && loaded.every(Boolean), urls.join(' | '));
       check('all four suits (blade, shield, scroll, boot) show paintings', cs.slice(0, 4).every(c => c.classList.contains('art')));
       // a suit whose painting is missing must fall back to the plain card design
-      const bootUrl = H.handArt.boot; H.handArt.boot = ''; H.render();
+      const bootUrl = H.handArt.boot, bootVar = H.handVariants.boot; H.handArt.boot = ''; delete H.handVariants.boot; H.render();
       const csFallback = [...document.querySelectorAll('#hand .card')];
       check('a suit without a painting keeps the plain card design', !csFallback[3].classList.contains('art') && csFallback[3].querySelector('.ico'));
-      H.handArt.boot = bootUrl;
+      H.handArt.boot = bootUrl; H.handVariants.boot = bootVar;
       p0.hand = saved; H.render();
     }
 
     check('7 quest frames rendered', document.querySelectorAll('.slot').length === 7);
     check('party panel lists every defender', document.querySelectorAll('.pm').length === g.party.length);
-    { const et = btnByText(document.getElementById('actions'), /End turn/);
+    { const H2 = window.__citadel;
+      check('every suit has four extra card designs', ['blade', 'shield', 'scroll', 'boot'].every(su => (H2.handVariants[su] || []).filter(Boolean).length === 4), JSON.stringify(Object.fromEntries(Object.entries(H2.handVariants).map(([k, v]) => [k, v.filter(Boolean).length]))));
+      const faces = new Set([0, 1, 2, 3].map(i => H2.cardFace({ suit: 'blade', id: i })));
+      check('cards of one suit use different designs', faces.size === 4);
+      const urls = [...faces]; const okAll = await Promise.all(urls.map(u => new Promise(r => { const i = new Image(); i.onload = () => r(true); i.onerror = () => r(false); i.src = u; })));
+      check('the extra card designs load', okAll.every(Boolean), urls.join(' | ')); }    { const et = btnByText(document.getElementById('actions'), /End turn/);
       check('the End turn button is visible and enabled', !!et && !et.disabled && getComputedStyle(et).opacity === '1' && et.getBoundingClientRect().width > 20, et ? 'opacity ' + getComputedStyle(et).opacity : 'missing'); }
     check('hand shows cards', document.querySelectorAll('#hand .card').length === g.party[g.active].hand.length);
     check('wheel has 12 seats', $('wheel').children.length === 12);

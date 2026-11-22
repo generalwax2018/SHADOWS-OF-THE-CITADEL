@@ -426,7 +426,8 @@
       const b = el('button', `card suit-${c.suit}` + (ui.picked.includes(c.id) ? ' selected' : '') + (def && def.suit === c.suit ? ' match' : ''));
       b.type = 'button';
       b.innerHTML = `<span class="ico suit-${c.suit}">${ICONS[c.suit]}</span>${C.SUIT_LABEL[c.suit]}`;
-      if (handArt[c.suit]) { b.classList.add('art'); b.style.backgroundImage = `url('${handArt[c.suit]}')`; }
+      const face = cardFace(c);
+      if (face) { b.classList.add('art'); b.style.backgroundImage = `url('${face}')`; }
       b.setAttribute('aria-pressed', ui.picked.includes(c.id));
       b.disabled = !mine();
       b.addEventListener('click', () => toggleCard(c.id));
@@ -1591,10 +1592,21 @@
   // Each is used only once its file is known to load, so a suit without a painting keeps the plain card design.
   // handArt[suit] and shadowArt.url hold the resolved image URL (versioned, WebP preferred, JPG accepted).
   const handArt = {};
+  const handVariants = {};          // suit -> [url, url, ...] (holes are skipped)
+  function cardFace(card) {
+    const v = (handVariants[card.suit] || []).filter(Boolean);
+    return v.length ? v[card.id % v.length] : handArt[card.suit];
+  }
   const shadowArt = { url: '' };
   if (Missions && Missions.resolveImage) {
     ['blade', 'shield', 'scroll', 'boot'].forEach(suit => {
       Missions.resolveImage('assets/cards/' + suit).then(f => { if (f) { handArt[suit] = f.url; if (game) render(); } });
+      // extra designs: assets/cards/<suit>-1 ... -4. Each card shows one of them (chosen by its id), so a hand looks varied.
+      [1, 2, 3, 4].forEach(n => Missions.resolveImage(`assets/cards/${suit}-${n}`).then(f => {
+        if (!f) return;
+        (handVariants[suit] = handVariants[suit] || [])[n - 1] = f.url;
+        if (game) render();
+      }));
     });
     Missions.resolveImage('assets/cards/shadow').then(f => { if (f) shadowArt.url = f.url; });
   }
@@ -1666,7 +1678,7 @@
   }
 
   // test hook
-  window.__citadel = { get game() { return game; }, render, startFrom, mw, openExpedition, closeExpedition, renderTrail, startTour, endTour, tour, startDaily, reportError, daily: { dayKey, dailySeed, readDaily, dailyStreak }, handArt, describeEvent, chronicle, clearChronicle, chron: ui.chron, settings: SET };
+  window.__citadel = { get game() { return game; }, render, startFrom, mw, openExpedition, closeExpedition, renderTrail, startTour, endTour, tour, startDaily, reportError, daily: { dayKey, dailySeed, readDaily, dailyStreak }, handArt, describeEvent, chronicle, clearChronicle, chron: ui.chron, settings: SET, handVariants, cardFace };
   if (/selftest/.test(location.hash)) {
     const t = document.createElement('script');
     t.src = 'js/selftest.js';

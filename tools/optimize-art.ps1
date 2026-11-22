@@ -9,6 +9,7 @@
 param(
   [string]$Path = "",
   [double]$Quality = 0.82,
+  [int]$MaxWidth = 0,          # shrink images wider than this (0 = keep the size)
   [switch]$RemoveOriginals,
   [int]$Port = 9347
 )
@@ -64,11 +65,12 @@ try {
 
   # the encoder: draw the image onto a canvas and ask the browser for WebP
   [void](Js $ws @'
-window.toWebp = (uri, q) => new Promise((res, rej) => {
+window.toWebp = (uri, q, mw) => new Promise((res, rej) => {
   const i = new Image();
   i.onload = () => {
-    const c = document.createElement('canvas'); c.width = i.naturalWidth; c.height = i.naturalHeight;
-    c.getContext('2d').drawImage(i, 0, 0);
+    const k = mw && i.naturalWidth > mw ? mw / i.naturalWidth : 1;
+    const c = document.createElement('canvas'); c.width = Math.round(i.naturalWidth * k); c.height = Math.round(i.naturalHeight * k);
+    c.getContext('2d').drawImage(i, 0, 0, c.width, c.height);
     c.toBlob(b => { if (!b || b.type !== 'image/webp') return rej('this browser cannot encode WebP');
       const fr = new FileReader(); fr.onload = () => res(fr.result.split(',')[1]); fr.readAsDataURL(b); }, 'image/webp', q);
   };
@@ -83,7 +85,7 @@ window.toWebp = (uri, q) => new Promise((res, rej) => {
     $mime = if ($f.Extension -eq '.png') { 'image/png' } else { 'image/jpeg' }
     $bytes = [IO.File]::ReadAllBytes($f.FullName)
     try {
-      $b64 = Js $ws ("window.toWebp('data:$mime;base64," + [Convert]::ToBase64String($bytes) + "', $Quality)")
+      $b64 = Js $ws ("window.toWebp('data:$mime;base64," + [Convert]::ToBase64String($bytes) + "', $Quality, $MaxWidth)")
       $webp = [Convert]::FromBase64String($b64)
     } catch { Write-Output ("FAILED  " + $f.Name + ": " + $_.Exception.Message); $exit = 1; continue }
     if ($webp.Length -ge $bytes.Length) { Write-Output ("kept    {0}: WebP would not be smaller ({1} KB vs {2} KB)" -f $f.Name, [math]::Round($webp.Length/1KB), [math]::Round($bytes.Length/1KB)); continue }

@@ -342,7 +342,7 @@
   // Browsers and GitHub Pages cache images (including "not found" and wrong files) for minutes. Painting URLs carry
   // this version, so changing it makes every browser fetch fresh copies. BUMP IT whenever a painting under
   // assets/art, assets/card or assets/cards is added or replaced.
-  const ART_VERSION = '6';
+  const ART_VERSION = '7';
   const versioned = u => u + '?v=' + ART_VERSION;
 
   // A probe resolves to false (no such file) or {w, h} (its pixel size). A bare `true` counts as a square image.
