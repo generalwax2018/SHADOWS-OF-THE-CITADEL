@@ -38,7 +38,8 @@
     over.appendChild(A.cv);
     A.ctx = A.cv.getContext('2d');
 
-    stage.addEventListener('pointermove', e => {
+    // The cursor lantern is disabled (it looked like a bright spot). Re-enable by restoring these listeners.
+    if (false) stage.addEventListener('pointermove', e => {
       if (e.pointerType === 'touch') return;
       const r = stage.getBoundingClientRect();
       stage.style.setProperty('--lx', ((e.clientX - r.left) / r.width * 100).toFixed(1) + '%');
