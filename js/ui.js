@@ -120,6 +120,51 @@
     cit.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); cit.click(); } };
   }
 
+  // ---------- path of destruction + card flights ----------
+  // The trail lists every Shadow card drawn this game, so the whole table can see how the ruin is spreading.
+  const TRAIL_TONE = { calm: 'calm', dread: 'warn', whisper: 'warn', wound: 'warn', hand: 'warn', siege1: 'ruin', siege2: 'ruin', gate: 'ruin', failed: 'ruin' };
+  const trailName = t => t === 'failed' ? ['Quest Lost', 'A quest ran out of time.'] : SHADOW_INFO[t];
+  function renderTrail(s) {
+    const box = $('trail');
+    if (!box) return;
+    const list = s.trail || [];
+    const known = ui.trailLen == null || list.length < ui.trailLen ? list.length : ui.trailLen;
+    box.innerHTML = '';
+    const show = list.slice(-24);
+    const offset = list.length - show.length;
+    if (!list.length) box.appendChild(el('span', 'trail-empty', 'Nothing yet. The first Shadow card is drawn at the start of a turn.'));
+    show.forEach((t, k) => {
+      const info = trailName(t.type) || [t.type, ''];
+      const fresh = offset + k >= known;
+      const chip = el('span', `tchip ${TRAIL_TONE[t.type] || 'warn'}${fresh ? ' fresh' : ''}${offset + k === list.length - 1 ? ' last' : ''}`,
+        `<i>${t.r}</i><b>${esc(info[0])}</b>`);
+      chip.setAttribute('role', 'listitem');
+      chip.title = `Round ${t.r}: ${info[0]}${info[1] ? ' - ' + info[1] : ''}`;
+      box.appendChild(chip);
+    });
+    box.appendChild(el('span', 'tchip citadel', '<b>The Citadel</b>'));
+    ui.trailLen = list.length;
+    box.scrollLeft = box.scrollWidth;
+  }
+
+  // A card-back ghost flies between two screen rects, then is removed. Returns the animation (or null).
+  function fly(from, to, ms, delay, cls, then) {
+    if (reduced || ui.fast || !from || !to || !document.body.animate) { if (then) then(); return null; }
+    const g = el('div', 'fly-ghost ' + (cls || ''));
+    g.style.cssText = `left:${to.left}px;top:${to.top}px;width:${to.width}px;height:${to.height}px`;
+    document.body.appendChild(g);
+    const dx = from.left + from.width / 2 - (to.left + to.width / 2), dy = from.top + from.height / 2 - (to.top + to.height / 2);
+    const k = from.width / Math.max(1, to.width);
+    const a = g.animate([
+      { transform: `translate(${dx}px, ${dy}px) rotate(-18deg) scale(${k})`, opacity: 0 },
+      { opacity: 1, offset: .15 },
+      { transform: `translate(${dx * .35}px, ${dy * .35 - 40}px) rotate(8deg) scale(${(1 + k) / 2 + .08})`, opacity: 1, offset: .6 },
+      { transform: 'translate(0, 0) rotate(0) scale(1)', opacity: 1 }
+    ], { duration: ms, delay: delay || 0, easing: 'cubic-bezier(.25,.8,.3,1)', fill: 'backwards' });
+    const done = () => { g.remove(); if (then) then(); };
+    a.onfinish = done; a.oncancel = done;
+    return a;
+  }
   // ---------- effects: sound + animation, driven by what changed between two states ----------
   // Because effects come from state diffs, they work the same offline, as host, and as an online guest.
   const SHADOW_INFO = {
@@ -204,7 +249,14 @@
       const p = s.party[cur.active];
       showBanner(online ? (mineNow ? 'Your turn' : `${playerLabel(cur.active)}'s turn`) : `${C.defenderDef(p.id).name}'s turn`, online && mineNow);
       Snd.play('turn');
-      if (cur.shadow) { showShadow(cur.shadow); setTimeout(() => Snd.play('shadow'), 250); }
+      if (cur.shadow) {
+        const deckR = $('shadowDeck').getBoundingClientRect(), stR = $('stage').getBoundingClientRect();
+        const w = stR.width * .16, h = w * 1.4;
+        const dest = { left: stR.right - stR.width * .025 - w, top: stR.top + stR.height * .14, width: w, height: h };
+        const flown = !reduced && !ui.fast;
+        if (flown) { Snd.play('draw'); fly(deckR, dest, 520, 120, 'shadow-back', () => { showShadow(cur.shadow); Snd.play('shadow'); }); }
+        else { showShadow(cur.shadow); setTimeout(() => Snd.play('shadow'), 250); }
+      }
     }
 
     // outcomes, most dramatic first
@@ -367,6 +419,9 @@
     const q = activeQuest();
     const def = q ? C.questDef(q.id) : null;
     let dealt = 0;
+    const gatherBtn = [...document.querySelectorAll('#actions button')].find(x => /^Gather/.test(x.textContent));
+    const handBox = hand.getBoundingClientRect();
+    const source = gatherBtn ? gatherBtn.getBoundingClientRect() : { left: handBox.left + handBox.width / 2 - 20, top: handBox.top - 60, width: 40, height: 56 };
     p.hand.forEach(c => {
       const b = el('button', `card suit-${c.suit}` + (ui.picked.includes(c.id) ? ' selected' : '') + (def && def.suit === c.suit ? ' match' : ''));
       b.type = 'button';
@@ -375,12 +430,18 @@
       b.setAttribute('aria-pressed', ui.picked.includes(c.id));
       b.disabled = !mine();
       b.addEventListener('click', () => toggleCard(c.id));
-      if (!reduced && ui.newCards && ui.newCards.has(c.id)) { b.classList.add('deal'); b.style.animationDelay = (dealt++ * 90) + 'ms'; }
       hand.appendChild(b);
+      if (!reduced && !ui.fast && ui.newCards && ui.newCards.has(c.id)) {
+        const delay = dealt++ * 130, dest = b.getBoundingClientRect();
+        b.style.visibility = 'hidden';
+        fly(source, dest, 560, delay, 'suit-' + c.suit, () => { b.style.visibility = ''; b.classList.add('landed'); setTimeout(() => b.classList.remove('landed'), 400); });
+        Snd.play('draw');
+      }
     });
     if (!p.hand.length) hand.appendChild(el('div', 'empty-note', 'No cards. Gather supplies to draw more.'));
     $('handHint').textContent = `${p.hand.length}/${C.HAND_LIMIT}` + (def ? ` - ${def.name} likes ${C.SUIT_LABEL[def.suit]}` : '');
 
+    renderTrail(s);
     renderWindows();
     renderMissions();
     renderQuestList();
@@ -1576,7 +1637,7 @@
   }
 
   // test hook
-  window.__citadel = { get game() { return game; }, render, startFrom, mw, openExpedition, closeExpedition, startTour, endTour, tour, startDaily, reportError, daily: { dayKey, dailySeed, readDaily, dailyStreak }, handArt, describeEvent, chronicle, clearChronicle, chron: ui.chron, settings: SET };
+  window.__citadel = { get game() { return game; }, render, startFrom, mw, openExpedition, closeExpedition, renderTrail, startTour, endTour, tour, startDaily, reportError, daily: { dayKey, dailySeed, readDaily, dailyStreak }, handArt, describeEvent, chronicle, clearChronicle, chron: ui.chron, settings: SET };
   if (/selftest/.test(location.hash)) {
     const t = document.createElement('script');
     t.src = 'js/selftest.js';

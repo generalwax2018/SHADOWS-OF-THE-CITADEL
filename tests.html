@@ -300,6 +300,21 @@ test('sabotageAction: only the Traitor, costs an action, produces a rumor; human
     eq(g.sabotages, 0, 'no auto sabotage seed ' + seed);
   }
 });
+test('the path of destruction records every Shadow card and lost quest, and survives redaction and old saves', () => {
+  const s = fresh(61, 5);
+  eq(s.trail.length, 1, 'the opening turn drew one Shadow card');
+  eq(s.trail[0].type, s.lastShadow, 'the trail records the card drawn');
+  const before = s.trail.length;
+  C.endTurn(s);
+  eq(s.trail.length, before + 1, 'each new turn adds one entry');
+  const f = fresh(62, 5); f.quests.forEach(x => { if (x) x.timer = 1; }); f.active = 4; f.actionsLeft = 2;
+  const n = f.trail.length; C.endTurn(f);
+  ok(f.over || f.trail.some(x => x.type === 'failed'), 'a lost quest is on the trail');
+  const v = C.redact(s, 0);
+  ok(Array.isArray(v.trail) && v.trail.length === s.trail.length, 'guests see the same public trail');
+  const old = C.clone(s); delete old.trail; C.endTurn(old);
+  ok(old.trail === undefined, 'an old save without a trail still plays');
+});
 test('run statistics count progress, completed and failed missions and wounds', () => {
   const s = fresh(51, 5);
   eq(s.stats.progress.length, 5, 'one progress counter per defender');

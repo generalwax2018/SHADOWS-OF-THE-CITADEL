@@ -155,6 +155,9 @@ plays at a similar difficulty. Your game autosaves in the browser, and your win/
 ### Keys
 `1`-`7` select a card, `P` or `Enter` play, `G` gather, `R` rest, `H` hint, `E` end turn.
 
+### Card draws and the path of destruction
+Cards fly out of their decks: the Shadow card flies from the Shadow deck and flips open, and supplies fly from the Gather button into your hand. Below the board, the **Path of destruction** lists every Shadow card drawn so far (and every lost quest) as a trail of glowing chips that ends at the Citadel, so the whole table can see how the ruin is spreading. Reduced motion turns the flights off.
+
 ### The chronicle
 Major events appear as a large card in the middle of the board, with an icon, a title and a plain description, then
 dismiss themselves after about two seconds: a siege engine rolling up, a black or white sword being seated, progress on a

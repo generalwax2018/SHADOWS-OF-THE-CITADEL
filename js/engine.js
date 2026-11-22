@@ -118,7 +118,7 @@
       party: [], whiteDeck: [], whiteDiscard: [], shadowDeck: [], shadowDiscard: [],
       quests: new Array(SLOTS).fill(null), questPool: [],
       traitor: -1, traitorRevealed: false, rumors: [], sabotages: 0,
-      lastShadow: null, log: []
+      lastShadow: null, log: [], trail: []
     };
 
     // party
@@ -323,6 +323,7 @@
     const type = s.shadowDeck.pop();
     s.shadowDiscard.push(type);
     s.lastShadow = type;
+    if (s.trail) s.trail.push({ r: s.round, type });   // public history: the path of destruction
     resolveShadow(s, type);
   }
 
@@ -335,6 +336,7 @@
     s.quests.forEach((q, slot) => {
       if (q && q.timer <= 0 && !s.over) {
         if (s.stats) s.stats.failed++;
+        if (s.trail) s.trail.push({ r: s.round, type: 'failed' });
         say(s, `${questDef(q.id).name} has failed! A black sword is seated.`, 'lose');
         s.party.forEach(p => { if (p.loc === slot) p.loc = CITADEL; });
         s.quests[slot] = null;

@@ -512,7 +512,14 @@
     try { stats = JSON.parse(localStorage.getItem('citadel-stats-v1')); } catch (e) { /* ignore */ }
     check('win/loss record saved after the game ends', !!stats && stats.played >= 1, stats ? stats.played + ' played' : '');
     check('end modal offers a challenge link', !!btnByText($('modalCard'), /Copy challenge link/));
-    // the crash guard: an error is reported to the player and collected, and the game stays usable
+    // path of destruction
+    {
+      const tr = document.getElementById('trail');
+      const n = window.__citadel.game.trail.length;
+      check('the path of destruction lists the Shadow cards drawn', !!tr && tr.querySelectorAll('.tchip:not(.citadel)').length === Math.min(24, n) && n >= 1);
+      check('the path ends at the Citadel', !!tr.querySelector('.tchip.citadel'));
+      check('the newest Shadow card is marked', !!tr.querySelector('.tchip.last'));
+    }    // the crash guard: an error is reported to the player and collected, and the game stays usable
     {
       const before = window.__citadelErrors.length;
       H.reportError(new Error('test error'));
