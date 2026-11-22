@@ -441,6 +441,24 @@
     if (!p.hand.length) hand.appendChild(el('div', 'empty-note', 'No cards. Gather supplies to draw more.'));
     $('handHint').textContent = `${p.hand.length}/${C.HAND_LIMIT}` + (def ? ` - ${def.name} likes ${C.SUIT_LABEL[def.suit]}` : '');
 
+    // suit powers: a rail that lights up for the pairs you hold, and brighter for the pairs you have selected
+    const rail = $('powers');
+    if (rail) {
+      const held = {}, picked = C.suitPowers(s, s.active, ui.picked);
+      p.hand.forEach(c => { held[c.suit] = (held[c.suit] || 0) + 1; });
+      rail.innerHTML = '';
+      C.SUITS.forEach(su => {
+        const pw = C.POWERS[su];
+        const n = el('span', `pw suit-${su}${held[su] >= 2 ? ' ready' : ''}${picked.includes(su) ? ' armed' : ''}`,
+          `<span class="ico suit-${su}">${ICONS[su]}</span><b>${pw.name}</b>`);
+        n.title = `${C.SUIT_LABEL[su]} pair: ${pw.text}` + (held[su] >= 2 ? ' (you hold a pair)' : '');
+        rail.appendChild(n);
+      });
+      const ward = s.ward || 0;
+      rail.appendChild(el('span', 'pw ward' + (ward ? ' on' : ''), `Ward <b>${ward}</b>`));
+      rail.lastChild.title = 'A ward absorbs the next wound anyone takes. Shield pairs raise it (up to ' + C.WARD_MAX + ').';
+    }
+
     renderTrail(s);
     renderWindows();
     renderMissions();
@@ -760,9 +778,10 @@
 
     // contribute
     const gain = q ? C.contributeValue(s, s.active, ui.picked) : 0;
-    btn(q ? `Play ${ui.picked.length} card${ui.picked.length === 1 ? '' : 's'} (+${gain})` : 'Play cards (go to a quest)',
+    const pw = q ? C.suitPowers(s, s.active, ui.picked).map(su => C.POWERS[su].name) : [];
+    btn(q ? `Play ${ui.picked.length} card${ui.picked.length === 1 ? '' : 's'} (+${gain})${pw.length ? ' + ' + pw.join(' + ') : ''}` : 'Play cards (go to a quest)',
       () => act(() => { const r = perform('contribute', ui.picked.slice()); ui.picked = []; return r; }),
-      { cls: 'primary', disabled: !q || ui.picked.length === 0, title: 'Matching suit counts double' });
+      { cls: 'primary', disabled: !q || ui.picked.length === 0, title: 'Matching suit counts double. Two cards of one suit also trigger that suit\'s power.' });
 
     btn('Gather supplies', () => act(() => perform('drawAction')), { title: 'Draw 2 cards (3 for Lord Harren) [G]' });
     btn('Rest', () => act(() => perform('rest')), { disabled: p.loc !== C.CITADEL, title: 'At the Citadel: everyone there heals 1 [R]' });
@@ -868,7 +887,7 @@
     heart:    '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21s-8-5-8-11a4.500 4.500 0 018-2.500A4.500 4.500 0 0120 10c0 6-8 11-8 11z"/></svg>',
     hourglass: HOURGLASS.replace('<svg ', '<svg fill="currentColor" ')
   };
-  const CHRON_PRIORITY = { complete: 3, failed: 3, fallen: 3, traitor: 3, wrong: 2, black: 2, siege: 2, sabotage: 2, wound: 1, progress: 1, rest: 1, dread: 1, whisper: 1, other: 1 };
+  const CHRON_PRIORITY = { complete: 3, failed: 3, fallen: 3, traitor: 3, wrong: 2, black: 2, siege: 2, sabotage: 2, power: 2, wound: 1, progress: 1, rest: 1, dread: 1, whisper: 1, other: 1 };
 
   // Turns one engine log entry into a card, or null for lines that are not worth a card.
   function describeEvent(e) {
@@ -876,6 +895,11 @@
     const clean = t.replace(/^Shadow:\s*/, '').replace(/^./, c => c.toUpperCase());
     const card = (type, icon, title, text, tn) => ({ type, icon: CI[icon], title, text: text || clean, tone: tn || tone });
     let m;
+    if (/ pair, (Charge|Ward|Lore|Swift):/.test(t)) {
+      const pm = t.match(/^(\w+) pair, (\w+):/);
+      return card('power', 'complete', `${pm[1]} pair: ${pm[2]}`, t.replace(/^\w+ pair, \w+:\s*/, '').replace(/^./, c => c.toUpperCase()), 'win');
+    }
+    if (/A ward shatters/.test(t)) return card('power', 'complete', 'Ward Shatters', clean, 'win');
     if (/ is complete!/.test(t)) return card('complete', 'complete', 'Mission Complete', clean, 'win');
     if (/ has failed!/.test(t)) return card('failed', 'failed', 'Mission Failed', clean, 'lose');
     if (/ is the Traitor!/.test(t)) return card('traitor', 'eye', 'The Traitor Is Unmasked', clean, 'win');
@@ -1187,6 +1211,9 @@
       '<h3>Each turn</h3><ul><li><b>Shadow:</b> a Shadow card is drawn first (siege, wounds, treachery...).</li>' +
       '<li><b>Heroic:</b> the active defender takes 2 actions: move, play cards on a quest, gather supplies, rest, or accuse.</li>' +
       '<li>Playing cards: up to 3. A card matching the quest\'s favoured suit is worth 2, others 1.</li>' +
+      '<li><b>Suit powers:</b> play <b>two cards of the same suit</b> in one play and that suit\'s power triggers as well. ' +
+        '<b>Blade</b> Charge pushes the siege back one. <b>Shield</b> Ward absorbs the next wound anyone takes (hold up to two). ' +
+        '<b>Scroll</b> Lore gives the quest one more round. <b>Boot</b> Swift makes the play cost no action. Choose your pairs.</li>' +
       '<li><b>Give card:</b> pass one card to a defender standing in the same place (1 action).</li>' +
       '<li><b>Hint</b> suggests a sensible next step.</li>' +
       '<li>Quests have a deadline in rounds. Miss it and a black sword is seated.</li>' +

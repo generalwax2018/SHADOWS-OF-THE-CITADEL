@@ -88,6 +88,18 @@ You lose if any of these happen:
    **Hint** suggests a sensible next step at any time.
 3. **End turn.** Play passes to the next defender. After the last one, a new round starts and every quest deadline drops by 1.
 
+### Suit powers
+Cards are more than numbers. Play **two cards of the same suit** in one play and that suit's power fires as well:
+
+| Pair | Power | Effect |
+|---|---|---|
+| Blade | Charge | The siege falls back one engine |
+| Shield | Ward | A ward absorbs the next wound anyone takes (hold up to two) |
+| Scroll | Lore | The quest gains one more round |
+| Boot | Swift | The play costs no action (once per turn) |
+
+The rail under your hand lights up for pairs you hold and glows for the pair you have selected, and the Play button shows what it will trigger. Hint suggests pair plays.
+
 ### Missions
 Seven missions are on the board at a time, drawn from twelve, and each has its own card in the **Missions** strip under
 the board. A card shows its illustration, its favoured suit, the rounds left, the progress made and which defenders are
@@ -247,11 +259,11 @@ The balance simulation plays seeded games with a simple greedy bot, per difficul
 
 | Defenders | Easy | Normal | Hard |
 |---|---|---|---|
-| 3 | 81% | 27% | 11% |
-| 4 | 81% | 33% | 16% |
-| 5 | 88% | 43% | 26% |
-| 6 | 94% | 49% | 16% |
-| 7 | 94% | 40% | 20% |
+| 3 | 89% | 27% | 9% |
+| 4 | 81% | 41% | 19% |
+| 5 | 89% | 47% | 29% |
+| 6 | 94% | 57% | 28% |
+| 7 | 96% | 53% | 27% |
 
 The bot is a simple greedy player: it never passes cards and only accuses when one defender is named in every
 rumor. A thoughtful human should do better. Tune `DIFFICULTY` and `SIZE_NEED` in `js/engine.js` and rerun `tools\run-tests.ps1`.

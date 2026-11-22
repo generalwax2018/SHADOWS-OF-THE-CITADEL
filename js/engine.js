@@ -64,9 +64,9 @@
 
   // needScale multiplies each quest's progress cost; timerBonus shifts its deadline in rounds.
   const DIFFICULTY = {
-    easy:   { needScale: 2.2, timerBonus: 3, calm: 6, gate: 1, siege2: 2, wound: 3 },
-    normal: { needScale: 2.5, timerBonus: 2, calm: 3, gate: 2, siege2: 3, wound: 4 },
-    hard:   { needScale: 2.5, timerBonus: 1, calm: 2, gate: 3, siege2: 4, wound: 5 }
+    easy:   { needScale: 2.4, timerBonus: 3, calm: 6, gate: 1, siege2: 2, wound: 3 },
+    normal: { needScale: 2.75, timerBonus: 2, calm: 3, gate: 2, siege2: 3, wound: 4 },
+    hard:   { needScale: 2.8, timerBonus: 1, calm: 2, gate: 3, siege2: 4, wound: 5 }
   };
 
   // A round has one turn per defender, so a bigger party does more work (and meets more Shadow
@@ -118,7 +118,7 @@
       party: [], whiteDeck: [], whiteDiscard: [], shadowDeck: [], shadowDiscard: [],
       quests: new Array(SLOTS).fill(null), questPool: [],
       traitor: -1, traitorRevealed: false, rumors: [], sabotages: 0,
-      lastShadow: null, log: [], trail: []
+      lastShadow: null, log: [], trail: [], ward: 0
     };
 
     // party
@@ -227,6 +227,11 @@
   function damage(s, idx, n) {
     const p = s.party[idx];
     if (!p.alive) return;
+    if ((s.ward || 0) > 0 && n > 0) {
+      s.ward--;
+      say(s, `A ward shatters and absorbs the blow meant for ${defenderDef(p.id).name}.`, 'win');
+      return;
+    }
     p.hp -= n;
     if (s.stats) s.stats.wounds++;
     const nm = defenderDef(p.id).name;
@@ -350,6 +355,7 @@
     if (s.over) return;
     s.maxActions = has(s, s.active, 'cavalry') ? 3 : 2;
     s.actionsLeft = s.maxActions;
+    s.swiftUsed = false;
     const nm = defenderDef(s.party[s.active].id).name;
     say(s, `-- Turn ${s.turn}: ${nm} --`, 'turn');
     drawShadow(s);
@@ -423,6 +429,23 @@
     return { ok: true };
   }
 
+  // Suit powers: playing two or more cards of one suit in a single play also triggers that suit's power (once per play),
+  // on top of their progress. Cards are therefore worth more than their number: you build pairs, and the pair you
+  // choose decides whether you push the siege back, raise a ward, buy time, or save an action.
+  const POWERS = {
+    blade:  { name: 'Charge', text: 'The siege falls back one engine.' },
+    shield: { name: 'Ward',   text: 'A ward absorbs the next wound (up to two held).' },
+    scroll: { name: 'Lore',   text: 'This quest gains one more round.' },
+    boot:   { name: 'Swift',  text: 'This play costs no action (once per turn).' }
+  };
+  const WARD_MAX = 2;
+  function suitPowers(s, idx, cardIds) {
+    const p = s.party[idx];
+    const n = {};
+    Array.from(new Set(cardIds || [])).forEach(id => { const c = p.hand.find(x => x.id === id); if (c) n[c.suit] = (n[c.suit] || 0) + 1; });
+    return SUITS.filter(su => n[su] >= 2 && !(su === 'boot' && s.swiftUsed));
+  }
+
   function cardValue(s, idx, card, quest) {
     const def = questDef(quest.id);
     let v = card.suit === def.suit ? 2 : 1;
@@ -454,15 +477,26 @@
     if (!ids.every(id => p.hand.some(c => c.id === id))) return fail('Those cards are not in your hand.');
 
     const gain = contributeValue(s, idx, ids);
+    const powers = suitPowers(s, idx, ids);          // read before the cards leave the hand
     ids.forEach(id => {
       const k = p.hand.findIndex(c => c.id === id);
       s.whiteDiscard.push(p.hand.splice(k, 1)[0]);
     });
     quest.progress += gain;
     if (s.stats) s.stats.progress[idx] += gain;
-    spend(s, 1);
+    const swift = powers.includes('boot') && !s.swiftUsed;      // Swift can save one action per turn
+    if (swift) s.swiftUsed = true; else spend(s, 1);
+    if (powers.includes('boot') && !swift) powers.splice(powers.indexOf('boot'), 1);
     const def = questDef(quest.id);
     say(s, `${defenderDef(p.id).name} advances ${def.name}: +${gain} (${Math.min(quest.progress, quest.needed)}/${quest.needed}).`, 'win');
+    powers.forEach(su => {
+      if (s.stats) s.stats.powers = (s.stats.powers || 0) + 1;
+      const pw = POWERS[su];
+      if (su === 'blade') { if (s.siege > 0) addSiege(s, -1); say(s, `Blade pair, ${pw.name}: the siege falls back.`, 'win'); }
+      else if (su === 'shield') { s.ward = Math.min(WARD_MAX, (s.ward || 0) + 1); say(s, `Shield pair, ${pw.name}: a ward is raised (${s.ward}).`, 'win'); }
+      else if (su === 'scroll') { quest.timer += 1; say(s, `Scroll pair, ${pw.name}: ${def.name} gains a round.`, 'win'); }
+      else if (su === 'boot') { say(s, `Boot pair, ${pw.name}: no action spent.`, 'win'); }
+    });
 
     if (quest.progress >= quest.needed) {
       const slot = p.loc;
@@ -596,7 +630,8 @@
     const here = bestPlay(s, idx);
     if (here) {
       const def = questDef(here.quest.id);
-      return { type: 'play', cards: here.ids, text: `Play ${here.ids.length} card${here.ids.length > 1 ? 's' : ''} on ${def.name} for +${here.gain}.` };
+      const pw = suitPowers(s, idx, here.ids).map(su => POWERS[su].name);
+      return { type: 'play', cards: here.ids, text: (pw.length ? 'A pair triggers ' + pw.join(' and ') + '. ' : '') + `Play${here.ids.length} card${here.ids.length > 1 ? 's' : ''} on ${def.name} for +${here.gain}.` };
     }
     if (p.hand.length >= 2) {
       let pick = null;
@@ -621,7 +656,7 @@
   }
 
   const api = {
-    SUITS, SUIT_LABEL, SEATS, WIN_WHITE, LOSE_BLACK, SIEGE_MAX, HAND_LIMIT, SLOTS, CITADEL, MAX_CONTRIBUTE,
+    SUITS, SUIT_LABEL, POWERS, WARD_MAX, suitPowers, SEATS, WIN_WHITE, LOSE_BLACK, SIEGE_MAX, HAND_LIMIT, SLOTS, CITADEL, MAX_CONTRIBUTE,
     DEFENDERS, QUEST_DEFS, DIFFICULTY,
     createGame, move, contribute, contributeValue, drawAction, rest, accuse, give, endTurn, sabotageAction,
     suggest, redact, suspicion, nextShadowPeek, questDef, defenderDef, count, livingIdx, locName, clone

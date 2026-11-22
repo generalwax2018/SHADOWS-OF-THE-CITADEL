@@ -512,7 +512,11 @@
     try { stats = JSON.parse(localStorage.getItem('citadel-stats-v1')); } catch (e) { /* ignore */ }
     check('win/loss record saved after the game ends', !!stats && stats.played >= 1, stats ? stats.played + ' played' : '');
     check('end modal offers a challenge link', !!btnByText($('modalCard'), /Copy challenge link/));
-    // path of destruction
+    // suit powers rail
+    {
+      const rail = document.getElementById('powers');
+      check('the suit-power rail lists four powers and the ward', !!rail && rail.querySelectorAll('.pw').length === 5 && /Charge/.test(rail.textContent) && /Swift/.test(rail.textContent) && /Ward/.test(rail.textContent));
+    }    // path of destruction
     {
       const tr = document.getElementById('trail');
       const n = window.__citadel.game.trail.length;

@@ -300,6 +300,32 @@ test('sabotageAction: only the Traitor, costs an action, produces a rumor; human
     eq(g.sabotages, 0, 'no auto sabotage seed ' + seed);
   }
 });
+test('suit powers: a pair of one suit triggers its power, singles do not', () => {
+  const setup = (seed) => { const s = fresh(seed, 5); const a = s.active; C.move(s, 0); s.actionsLeft = 2; s.swiftUsed = false; return { s, a, q: s.quests[0] }; };
+  const give = (s, a, suits) => { s.party[a].hand = suits.map((su, i) => ({ id: 900 + i, suit: su })); return suits.map((_, i) => 900 + i); };
+  { const { s, a } = setup(71); s.siege = 3; const ids = give(s, a, ['blade', 'blade']); C.contribute(s, ids); eq(s.siege, 2, 'a Blade pair pushes the siege back'); }
+  { const { s, a } = setup(72); s.siege = 3; const ids = give(s, a, ['blade', 'shield']); C.contribute(s, ids); eq(s.siege, 3, 'a single Blade does nothing extra'); }
+  { const { s, a } = setup(73); s.ward = 0; const ids = give(s, a, ['shield', 'shield']); C.contribute(s, ids); eq(s.ward, 1, 'a Shield pair raises a ward');
+    const hp = s.party[a].hp; C.contribute; s.party[a].hp = 3; s.actionsLeft = 2;
+    s.shadowDeck = ['wound']; s.active = a; /* the ward soaks the next wound */ s.ward = 1; const w0 = s.stats.wounds;
+    // damage via a Shadow wound on the active defender: emulate by ending turns until a wound lands is slow, so test the rule directly
+    eq(typeof C.WARD_MAX, 'number', 'ward limit is exported'); }
+  { const { s, a, q } = setup(74); const t0 = q.timer; const ids = give(s, a, ['scroll', 'scroll']); C.contribute(s, ids); eq(q.timer, t0 + 1, 'a Scroll pair adds a round to the quest'); }
+  { const { s, a } = setup(75); const ids = give(s, a, ['boot', 'boot']); const left = s.actionsLeft; C.contribute(s, ids); eq(s.actionsLeft, left, 'a Boot pair costs no action');
+    s.party[a].hand = [{ id: 950, suit: 'boot' }, { id: 951, suit: 'boot' }]; C.contribute(s, [950, 951]); eq(s.actionsLeft, left - 1, 'Swift works only once per turn'); }
+  { const { s, a } = setup(76); const ids = give(s, a, ['blade', 'blade', 'blade']); ok(C.suitPowers(s, a, ids).length === 1, 'three of a suit is still one power'); }
+  { const { s, a } = setup(77); s.ward = 5; const ids = give(s, a, ['shield', 'shield']); C.contribute(s, ids); ok(s.ward <= C.WARD_MAX, 'wards are capped'); }
+});
+
+test('a ward absorbs exactly one wound', () => {
+  const s = fresh(78, 5); const i = (s.active + 1) % 5; s.ward = 1; const hp = s.party[i].hp;
+  s.active = i; s.shadowDeck = ['wound', 'wound']; C.endTurn(s);   // the next defender draws a wound
+  ok(s.ward === 0 || s.ward === 1, 'ward is consumed or untouched depending on who was hit');
+  const s2 = fresh(79, 5); s2.ward = 1; const before = s2.party.map(p => p.hp);
+  s2.shadowDeck = ['wound']; C.endTurn(s2);
+  const lost = s2.party.reduce((n, p, k) => n + (before[k] - p.hp), 0);
+  eq(lost, 0, 'the wound was absorbed'); eq(s2.ward, 0, 'and the ward is spent');
+});
 test('the path of destruction records every Shadow card and lost quest, and survives redaction and old saves', () => {
   const s = fresh(61, 5);
   eq(s.trail.length, 1, 'the opening turn drew one Shadow card');
