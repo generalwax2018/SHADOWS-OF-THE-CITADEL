@@ -1283,7 +1283,7 @@
   }
 
   // test hook
-  window.__citadel = { get game() { return game; }, render, startFrom, mw, openExpedition, closeExpedition };
+  window.__citadel = { get game() { return game; }, render, startFrom, mw, openExpedition, closeExpedition, handArt };
   if (/selftest/.test(location.hash)) {
     const t = document.createElement('script');
     t.src = 'js/selftest.js';

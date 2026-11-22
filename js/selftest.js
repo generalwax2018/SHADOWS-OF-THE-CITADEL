@@ -25,10 +25,15 @@
       H.render();
       const cs = [...document.querySelectorAll('#hand .card')];
       // the painting's real URL, as the browser resolved it, must load (catches wrong relative paths)
-      const urls = cs.slice(0, 3).map(c => (/url\("?([^")]+)"?\)/.exec(getComputedStyle(c).backgroundImage) || [])[1]);
+      const urls = cs.slice(0, 4).map(c => (/url\("?([^")]+)"?\)/.exec(getComputedStyle(c).backgroundImage) || [])[1]);
       const loaded = await Promise.all(urls.map(u => new Promise(r => { if (!u) return r(false); const i = new Image(); i.onload = () => r(true); i.onerror = () => r(false); i.src = u; })));
-      check('blade, shield and scroll cards show their paintings', cs.slice(0, 3).every(c => c.classList.contains('art')) && loaded.every(Boolean), urls.join(' | '));
-      check('a suit without a painting keeps the plain card design', !cs[3].classList.contains('art'));
+      check('blade, shield, scroll and boot cards show their paintings', cs.slice(0, 4).every(c => c.classList.contains('art')) && loaded.every(Boolean), urls.join(' | '));
+      check('all four suits (blade, shield, scroll, boot) show paintings', cs.slice(0, 4).every(c => c.classList.contains('art')));
+      // a suit whose painting is missing must fall back to the plain card design
+      H.handArt.boot = false; H.render();
+      const csFallback = [...document.querySelectorAll('#hand .card')];
+      check('a suit without a painting keeps the plain card design', !csFallback[3].classList.contains('art') && csFallback[3].querySelector('.ico'));
+      H.handArt.boot = true;
       p0.hand = saved; H.render();
     }
 
