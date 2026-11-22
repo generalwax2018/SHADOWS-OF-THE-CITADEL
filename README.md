@@ -97,7 +97,7 @@ standing there. Select a card to open it full size, or to move there.
   the sea rolls under a storm, the forge throws sparks, fog drifts through the pines, banners sway.
 - **Replace the generated art with paintings:** drop an image at `assets/art/<id>.jpg` (illustration only, the game adds
   the frame and text; tall 2:3 paintings work best) or `assets/card/<id>.jpg` (a complete card) and it is used
-  automatically. Five missions already have paintings this way (gates, scouts, archives, sea, forge). See
+  automatically. All eight formerly generated missions now have paintings this way. See
   [docs/MISSION_ART.md](docs/MISSION_ART.md) for the file names, what is still missing and ready-made prompts.
 - Cards animate as the game changes: a **+N** floats up when you make progress, a card pulses red when it has two
   rounds or fewer left, it is stamped **COMPLETE** and flips away when finished, and it is stamped **FAILED**, greys out
@@ -199,7 +199,7 @@ Every game has a seed. Enter one on the setup screen, or share a link like `inde
 | `js/online.js` | host (authoritative, runs bots) and guest sessions, no DOM |
 | `assets/` | board, quest cards, card back and defender portraits; `art/` and `card/` hold optional mission paintings |
 | `docs/MISSION_ART.md` | how to render and add paintings for the generated missions, with prompts |
-| `docs/GROK_REQUEST.md` | the four images still needed, as copy-and-paste prompts with exact file names |
+| `docs/GROK_REQUEST.md` | the one image still needed (the Boot hand card), as a copy-and-paste prompt |
 | `assets/cards/` | painted hand cards (`blade`, `shield`, `scroll`; `boot` is still to do) and the Shadow card |
 | `tests.html` | engine unit tests plus a bot balance simulation |
 | `tests-online.html` | host/guest protocol tests over a real WebRTC loopback connection |

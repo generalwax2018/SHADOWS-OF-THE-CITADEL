@@ -10,7 +10,7 @@ generator such as Grok, then dropping the files in. No code changes are needed.
 |---|---|
 | Mend the Gates, Rescue the Scouts, Guard the Archives, Scout the Sea, Feed the Forge | painted (`assets/art/`) |
 | Hold the Pass, Recover the Banner, Seek the Relic Blade, Defend the Walls | painted full cards (`assets/quest-*.jpg`) |
-| Mountain Watch, Light the Beacons, Renew the Oath | still generated: these three need paintings |
+| Mountain Watch, Light the Beacons, Renew the Oath | painted (ssets/art/) |
 
 ## Two ways to supply a painting
 
