@@ -39,6 +39,8 @@
 
     check('7 quest frames rendered', document.querySelectorAll('.slot').length === 7);
     check('party panel lists every defender', document.querySelectorAll('.pm').length === g.party.length);
+    { const et = btnByText(document.getElementById('actions'), /End turn/);
+      check('the End turn button is visible and enabled', !!et && !et.disabled && getComputedStyle(et).opacity === '1' && et.getBoundingClientRect().width > 20, et ? 'opacity ' + getComputedStyle(et).opacity : 'missing'); }
     check('hand shows cards', document.querySelectorAll('#hand .card').length === g.party[g.active].hand.length);
     check('wheel has 12 seats', $('wheel').children.length === 12);
     check('siege row has 12 dots', $('siegeRow').children.length === 12);
@@ -516,7 +518,7 @@
     // board ambience
     {
       const st = document.getElementById('stage');
-      const layers = ['.torch', '.fog', '.glint', '.vignette', '.lantern', '.danger', 'canvas.embers'];
+      const layers = ['.torch', '.fog', '.glint', '.vignette', '.lantern', '.amb-danger', 'canvas.embers'];
       check('the board has its ambience layers', layers.every(q => !!st.querySelector(q)));
       check('ambience never blocks clicks', [...st.querySelectorAll('.amb, .amb > *')].every(n => getComputedStyle(n).pointerEvents === 'none'));
       const A = window.CitadelAmbience;

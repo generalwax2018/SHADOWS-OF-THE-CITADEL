@@ -32,7 +32,7 @@
     const over = mk('amb amb-over', stage, stage.querySelector('#expedition'));
     mk('lantern', over);
     mk('vignette', over);
-    mk('danger', over);
+    mk('amb-danger', over);
     A.cv = document.createElement('canvas');
     A.cv.className = 'embers';
     over.appendChild(A.cv);
