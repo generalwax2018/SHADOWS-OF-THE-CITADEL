@@ -148,7 +148,7 @@
     const info = SHADOW_INFO[type];
     if (!info) return;
     const box = $('shadowReveal');
-    box.innerHTML = `<div class="sr-card"><small>Shadow</small><b>${esc(info[0])}</b><span>${esc(info[1])}</span></div>`;
+    box.innerHTML = `<div class="sr-card${shadowArt.ok ? ' art' : ''}"><small>Shadow</small><b>${esc(info[0])}</b><span>${esc(info[1])}</span></div>`;
     box.className = 'shadow-reveal show';
     clearTimeout(showShadow.t);
     showShadow.t = setTimeout(() => { box.className = 'shadow-reveal'; }, 2300);
@@ -328,6 +328,7 @@
       const b = el('button', `card suit-${c.suit}` + (ui.picked.includes(c.id) ? ' selected' : '') + (def && def.suit === c.suit ? ' match' : ''));
       b.type = 'button';
       b.innerHTML = `<span class="ico suit-${c.suit}">${ICONS[c.suit]}</span>${C.SUIT_LABEL[c.suit]}`;
+      if (handArt[c.suit]) { b.classList.add('art'); b.style.backgroundImage = `url('assets/cards/${c.suit}.jpg')`; }
       b.setAttribute('aria-pressed', ui.picked.includes(c.id));
       b.disabled = !mine();
       b.addEventListener('click', () => toggleCard(c.id));
@@ -1203,6 +1204,17 @@
     $('modalCard').querySelector('[data-a="menu"]').onclick = () => { delete $('modal').dataset.lock; leaveOnline(); ui.preview = false; openSetup(); };
     Snd.play('deny');
   }
+
+  // ---------- painted card faces (assets/cards/<suit>.jpg and shadow.jpg) ----------
+  // Each is used only once its file is known to load, so a suit without a painting keeps the plain card design.
+  const handArt = {};
+  const shadowArt = { ok: false };
+  ['blade', 'shield', 'scroll', 'boot'].forEach(suit => {
+    const i = new Image();
+    i.onload = () => { handArt[suit] = true; if (game) render(); };
+    i.src = 'assets/cards/' + suit + '.jpg';
+  });
+  { const i = new Image(); i.onload = () => { shadowArt.ok = true; }; i.src = 'assets/cards/shadow.jpg'; }
 
   // ---------- boot ----------
   function startFrom(g) {

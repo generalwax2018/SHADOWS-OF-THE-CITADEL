@@ -199,6 +199,8 @@ Every game has a seed. Enter one on the setup screen, or share a link like `inde
 | `js/online.js` | host (authoritative, runs bots) and guest sessions, no DOM |
 | `assets/` | board, quest cards, card back and defender portraits; `art/` and `card/` hold optional mission paintings |
 | `docs/MISSION_ART.md` | how to render and add paintings for the generated missions, with prompts |
+| `docs/GROK_REQUEST.md` | the four images still needed, as copy-and-paste prompts with exact file names |
+| `assets/cards/` | painted hand cards (`blade`, `shield`, `scroll`; `boot` is still to do) and the Shadow card |
 | `tests.html` | engine unit tests plus a bot balance simulation |
 | `tests-online.html` | host/guest protocol tests over a real WebRTC loopback connection |
 | `js/selftest.js` | UI smoke test, loaded only with `#selftest` in the URL |

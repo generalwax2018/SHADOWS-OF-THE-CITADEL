@@ -13,7 +13,24 @@
   async function run() {
     const H = window.__citadel;
     const C = window.Citadel;
+    await new Promise(r => setTimeout(r, 350));          // let the painted card faces finish loading
+    H.render();
     let g = H.game;
+
+    // painted card faces: blade, shield and scroll have paintings, boot does not yet
+    {
+      const p0 = g.party[g.active];
+      const saved = p0.hand.slice();
+      p0.hand = ['blade', 'shield', 'scroll', 'boot'].map((s, i) => ({ id: 8800 + i, suit: s }));
+      H.render();
+      const cs = [...document.querySelectorAll('#hand .card')];
+      // the painting's real URL, as the browser resolved it, must load (catches wrong relative paths)
+      const urls = cs.slice(0, 3).map(c => (/url\("?([^")]+)"?\)/.exec(getComputedStyle(c).backgroundImage) || [])[1]);
+      const loaded = await Promise.all(urls.map(u => new Promise(r => { if (!u) return r(false); const i = new Image(); i.onload = () => r(true); i.onerror = () => r(false); i.src = u; })));
+      check('blade, shield and scroll cards show their paintings', cs.slice(0, 3).every(c => c.classList.contains('art')) && loaded.every(Boolean), urls.join(' | '));
+      check('a suit without a painting keeps the plain card design', !cs[3].classList.contains('art'));
+      p0.hand = saved; H.render();
+    }
 
     check('7 quest frames rendered', document.querySelectorAll('.slot').length === 7);
     check('party panel lists every defender', document.querySelectorAll('.pm').length === g.party.length);
@@ -130,6 +147,10 @@
     if (!H.game.over) {
       check('turn banner shown for the new turn', $('banner').classList.contains('show') && /turn/.test($('banner').textContent), $('banner').textContent);
       check('Shadow card reveal shown', $('shadowReveal').classList.contains('show') && $('shadowReveal').textContent.length > 5);
+      const sc = $('shadowReveal').querySelector('.sr-card.art');
+      const su = sc && (/url\("?([^")]+shadow\.jpg)"?\)/.exec(getComputedStyle(sc).backgroundImage) || [])[1];
+      const sOk = su ? await new Promise(r => { const i = new Image(); i.onload = () => r(true); i.onerror = () => r(false); i.src = su; }) : false;
+      check('the Shadow card shows its painting (the image URL loads)', !!sc && sOk, su || 'no art class');
     }
     check('log shows entries', $('log').children.length > 3);
 
