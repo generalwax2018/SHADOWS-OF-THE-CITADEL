@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Shadows of the Citadel — Sound</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #050403; color: #e8e0d0; font-family: system-ui, sans-serif; overflow: hidden; }
+  header {
+    background: linear-gradient(#1a1510ee, #0c0a08ee);
+    padding: 10px 20px; border-bottom: 2px solid #c9a66b;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  h1 { margin: 0; font-size: 20px; letter-spacing: 5px; color: #c9a66b; }
+  .status { display: flex; gap: 16px; font-size: 14px; }
+  .status strong { color: #c9a66b; }
+  .main { display: flex; height: calc(100vh - 50px); }
+  .board { flex: 1; padding: 16px; }
+  .missions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+  .mission {
+    width: 120px; height: 170px; border: 3px solid #3a2f22; border-radius: 6px;
+    background: #1a1510; cursor: pointer; position: relative;
+  }
+  .mission.active { border-color: #c9a66b; }
+  .mission .label { position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,0.8); font-size: 11px; text-align: center; padding: 6px; }
+  .side { width: 280px; background: #16120e; padding: 14px; border-left: 1px solid #3a2f22; }
+  .panel { background: #1e1a16; border: 1px solid #3a2f22; padding: 12px; margin-bottom: 12px; border-radius: 6px; }
+  .panel h3 { margin: 0 0 8px; color: #c9a66b; font-size: 13px; }
+  button { background: #3a2f22; color: #e8e0d0; border: 1px solid #c9a66b; padding: 7px 12px; margin: 3px; cursor: pointer; border-radius: 3px; }
+  .log { height: 120px; overflow-y: auto; background: #0a0806; padding: 8px; font-size: 12px; border-radius: 4px; }
+
+  #chronicle {
+    position: fixed; inset: 0; display: none; align-items: center; justify-content: center; z-index: 50;
+  }
+  #chronicle.show { display: flex; }
+  #chronicle.evil { background: radial-gradient(circle, rgba(40,0,0,0.55), rgba(5,0,0,0.88)); }
+  #chronicle.heroic { background: rgba(5,4,3,0.7); }
+  .chronicle-card {
+    width: 440px; max-width: 90vw; padding: 32px 26px; text-align: center; border-radius: 12px;
+    animation: chronicleIn 0.5s cubic-bezier(0.15, 0.9, 0.2, 1);
+  }
+  .chronicle-card.evil {
+    background: linear-gradient(180deg, #1a0808, #0a0404);
+    border: 3px solid #8b2a2a;
+    box-shadow: 0 0 60px rgba(180,20,20,0.35), 0 20px 50px rgba(0,0,0,0.9);
+    color: #f0d0d0;
+    animation: chronicleIn 0.5s cubic-bezier(0.15, 0.9, 0.2, 1), pulseRed 1.2s ease-in-out 0.5s 2;
+  }
+  .chronicle-card.heroic {
+    background: linear-gradient(180deg, #1a1510, #0c0a08);
+    border: 3px solid #c9a66b;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.8);
+  }
+  .chronicle-card h2 { margin: 0 0 6px; font-size: 24px; letter-spacing: 4px; }
+  .chronicle-card.evil h2 { color: #e05050; text-shadow: 0 0 12px rgba(200,40,40,0.6); }
+  .chronicle-card.heroic h2 { color: #c9a66b; }
+  .chronicle-card .icon { font-size: 56px; margin: 10px 0; }
+  .chronicle-card.evil .icon { filter: drop-shadow(0 0 16px rgba(200,30,30,0.7)); }
+  .chronicle-card p { margin: 10px 0 0; font-size: 16px; line-height: 1.45; }
+  .chronicle-card .sub { margin-top: 16px; font-size: 13px; letter-spacing: 1px; opacity: 0.8; }
+  .chronicle-card.evil .sub { color: #ff8080; }
+  @keyframes chronicleIn {
+    from { opacity: 0; transform: scale(0.8) translateY(30px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
+  }
+  @keyframes pulseRed {
+    0%, 100% { box-shadow: 0 0 40px rgba(180,20,20,0.3); }
+    50% { box-shadow: 0 0 70px rgba(220,40,40,0.55); }
+  }
+</style>
+</head>
+<body>
+
+<div id="chronicle">
+  <div class="chronicle-card" id="chronCard">
+    <div class="icon" id="chronIcon">⚔️</div>
+    <h2 id="chronTitle">Event</h2>
+    <p id="chronText">Something happened.</p>
+    <div class="sub" id="chronSub"></div>
+  </div>
+</div>
+
+<header>
+  <h1>SHADOWS OF THE CITADEL</h1>
+  <div class="status">
+    <span>Turn <strong id="turn">1</strong></span>
+    <span>White <strong id="white">0</strong></span>
+    <span>Black <strong id="black">0</strong></span>
+    <span>Siege <strong id="siege">0</strong>/12</span>
+    <span id="soundStatus">Sound on</span>
+  </div>
+</header>
+
+<div class="main">
+  <div class="board">
+    <div class="missions" id="missions"></div>
+  </div>
+  <div class="side">
+    <div class="panel">
+      <h3>Actions</h3>
+      <button onclick="doProgress()">Progression of Evil</button>
+      <button onclick="doPlay()">Play Cards</button>
+      <button onclick="toggleSound()" id="btnSound">Mute</button>
+    </div>
+    <div class="panel">
+      <h3>Log</h3>
+      <div class="log" id="log"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// Web Audio urgency design
+let audioCtx = null;
+let soundOn = true;
+
+function ensureAudio() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === "suspended") audioCtx.resume();
+}
+
+function playEvil() {
+  if (!soundOn) return;
+  ensureAudio();
+  const now = audioCtx.currentTime;
+
+  // Low ominous drone
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = "sawtooth";
+  osc.frequency.setValueAtTime(55, now);
+  osc.frequency.exponentialRampToValueAtTime(38, now + 1.4);
+  gain.gain.setValueAtTime(0.18, now);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 1.6);
+  osc.connect(gain).connect(audioCtx.destination);
+  osc.start(now);
+  osc.stop(now + 1.6);
+
+  // Impact thud
+  const thud = audioCtx.createOscillator();
+  const thudGain = audioCtx.createGain();
+  thud.type = "sine";
+  thud.frequency.setValueAtTime(80, now);
+  thud.frequency.exponentialRampToValueAtTime(30, now + 0.35);
+  thudGain.gain.setValueAtTime(0.4, now);
+  thudGain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+  thud.connect(thudGain).connect(audioCtx.destination);
+  thud.start(now);
+  thud.stop(now + 0.4);
+
+  // Rising tension noise
+  const noise = audioCtx.createBufferSource();
+  const buffer = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.8, audioCtx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * 0.3;
+  noise.buffer = buffer;
+  const noiseGain = audioCtx.createGain();
+  noiseGain.gain.setValueAtTime(0.08, now);
+  noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
+  noise.connect(noiseGain).connect(audioCtx.destination);
+  noise.start(now);
+}
+
+function playHeroic() {
+  if (!soundOn) return;
+  ensureAudio();
+  const now = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = "triangle";
+  osc.frequency.setValueAtTime(440, now);
+  osc.frequency.exponentialRampToValueAtTime(660, now + 0.25);
+  gain.gain.setValueAtTime(0.12, now);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+  osc.connect(gain).connect(audioCtx.destination);
+  osc.start(now);
+  osc.stop(now + 0.4);
+}
+
+function toggleSound() {
+  soundOn = !soundOn;
+  document.getElementById("btnSound").textContent = soundOn ? "Mute" : "Unmute";
+  document.getElementById("soundStatus").textContent = soundOn ? "Sound on" : "Sound off";
+}
+
+const quests = [
+  { name: "Hold the Pass", progress: 0, needed: 6 },
+  { name: "Mend the Gates", progress: 0, needed: 7 },
+  { name: "Light the Beacons", progress: 0, needed: 5 },
+  { name: "Renew the Oath", progress: 0, needed: 8 }
+];
+let state = { turn: 1, white: 0, black: 0, siege: 0, selected: 0 };
+
+function log(msg) {
+  const el = document.getElementById("log");
+  const d = document.createElement("div");
+  d.textContent = msg;
+  el.appendChild(d);
+  el.scrollTop = el.scrollHeight;
+}
+
+function showChronicle(type, icon, title, text, sub = "") {
+  const overlay = document.getElementById("chronicle");
+  const card = document.getElementById("chronCard");
+  overlay.className = "show " + type;
+  card.className = "chronicle-card " + type;
+  document.getElementById("chronIcon").textContent = icon;
+  document.getElementById("chronTitle").textContent = title;
+  document.getElementById("chronText").textContent = text;
+  document.getElementById("chronSub").textContent = sub;
+  setTimeout(() => overlay.classList.remove("show"), type === "evil" ? 2600 : 2000);
+}
+
+function render() {
+  document.getElementById("turn").textContent = state.turn;
+  document.getElementById("white").textContent = state.white;
+  document.getElementById("black").textContent = state.black;
+  document.getElementById("siege").textContent = state.siege;
+  const el = document.getElementById("missions");
+  el.innerHTML = "";
+  quests.forEach((q, i) => {
+    const div = document.createElement("div");
+    div.className = "mission" + (state.selected === i ? " active" : "");
+    div.innerHTML = `<div class="label">${q.name}<br>${q.progress}/${q.needed}</div>`;
+    div.onclick = () => { state.selected = i; render(); };
+    el.appendChild(div);
+  });
+}
+
+function doProgress() {
+  const r = Math.floor(Math.random() * 3);
+  playEvil();
+  if (r === 0) {
+    state.siege++;
+    showChronicle("evil", "🏰", "SIEGE ENGINE", "The shadows tighten their grip. A new engine joins the assault.", `Siege ${state.siege}/12`);
+    log(`+1 Siege (${state.siege})`);
+  } else if (r === 1) {
+    state.black++;
+    showChronicle("evil", "🗡️", "BLACK SWORD", "A black sword is driven into the track. The darkness grows.", `Black ${state.black}`);
+    log(`+1 Black Sword (${state.black})`);
+  } else {
+    showChronicle("evil", "📜", "SHADOW CARD", "A black card is drawn from the depths.", "");
+    log("Drew Black card");
+  }
+  state.turn++;
+  render();
+}
+
+function doPlay() {
+  playHeroic();
+  const q = quests[state.selected];
+  q.progress += 2;
+  showChronicle("heroic", "⚔️", "QUEST ADVANCES", `${q.name} moves forward.`, `${q.progress}/${q.needed}`);
+  log(`${q.name}: ${q.progress}/${q.needed}`);
+  if (q.progress >= q.needed) {
+    setTimeout(() => {
+      state.white++;
+      q.progress = 0;
+      showChronicle("heroic", "✨", "QUEST COMPLETE", `${q.name} is secured.`, "+1 White Sword");
+      log(`${q.name} complete! +1 White`);
+      render();
+    }, 2100);
+  }
+  state.turn++;
+  render();
+}
+
+log("Sound design active. Progression of Evil has a low drone + impact.");
+render();
+</script>
+</body>
+</html>
