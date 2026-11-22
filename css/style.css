@@ -85,7 +85,7 @@ button.danger { border-color: var(--bad); }
 .overlay { position: absolute; inset: 0; }
 
 /* siege strip along the top */
-.siege-row { position: absolute; left: 46.5%; width: 51%; top: 2%; display: flex; justify-content: space-between; }
+.siege-row { position: absolute; left: 42%; width: 54%; top: 11.5%; display: flex; justify-content: space-between; transform: rotate(4.3deg); transform-origin: 0 0; }
 .siege-dot {
   width: 3.4cqw; height: 3.4cqw; border-radius: 50%;
   border: 0.25cqw solid rgba(201,166,107,.55); background: rgba(0,0,0,.55);
@@ -103,13 +103,13 @@ button.danger { border-color: var(--bad); }
 .seat.black { border: 0.25cqw solid #777; background: radial-gradient(circle at 35% 30%, #555, #111 60%, #000); box-shadow: 0 0 1cqw rgba(0,0,0,.9); }
 
 .deck-label {
-  position: absolute; left: 33%; top: 69%; width: 9.4%; height: 18.6%;
+  position: absolute; left: 20.4%; top: 69.5%; width: 17.8%; height: 26%;
   display: flex; align-items: flex-end; justify-content: center; text-align: center;
   font-size: 1.5cqw; color: var(--gold-hi); text-shadow: 0 1px 3px #000; padding-bottom: 0.6cqw; pointer-events: auto;
 }
 
 .citadel-spot {
-  position: absolute; left: 12%; top: 5%; width: 26%; height: 25%;
+  position: absolute; left: 9%; top: 3%; width: 27%; height: 29%;
   border: 0.2cqw solid transparent; border-radius: 1cqw; cursor: pointer;
   display: flex; flex-direction: column; justify-content: flex-end; padding: 0.6cqw;
   transition: border-color .2s, background .2s;
@@ -120,7 +120,7 @@ button.danger { border-color: var(--bad); }
 /* quest frames over the seven gold frames */
 .slots { position: absolute; inset: 0; pointer-events: none; }
 .slot {
-  position: absolute; left: 46.9%; width: 13.2%; height: 9.5%;
+  position: absolute; left: 40.6%; width: 13.4%; height: 6.8%;
   display: flex; flex-direction: column; justify-content: center; gap: 0.3cqw;
   padding: 0.5cqw 1.8cqw 0.5cqw 1cqw; border-radius: 0.8cqw; cursor: pointer; pointer-events: auto;
   background: linear-gradient(90deg, rgba(10,8,6,.88), rgba(10,8,6,.72));
@@ -500,9 +500,9 @@ label.check { display: flex; gap: 8px; align-items: center; margin: 12px 0 0; fo
 @keyframes lvin { from { opacity: 0; transform: scale(1.06); } to { opacity: 1; transform: none; } }
 @keyframes lvout { to { opacity: 0; transform: scale(.97); } }
 
-.mwin { position: absolute; left: 62.6%; width: 35%; padding: 0; border: 0; border-radius: 3px; overflow: hidden; cursor: pointer; background: #050403; color: var(--ink); text-align: left; pointer-events: auto; }
-.mwin.top { top: 11.5%; height: 39.6%; }
-.mwin.bottom { top: 55.1%; height: 41.4%; }
+.mwin { position: absolute; left: 63.8%; width: 30.6%; padding: 0; border: 0; border-radius: 3px; overflow: hidden; cursor: pointer; background: #050403; color: var(--ink); text-align: left; pointer-events: auto; }
+.mwin.top { top: 28.7%; height: 21.2%; }
+.mwin.bottom { left: 64.4%; width: 32.8%; top: 57%; height: 28.2%; }
 .mwin:hover:not(:disabled) { background: #050403; }
 .mwin::after { content: ''; position: absolute; inset: 0; pointer-events: none; box-shadow: inset 0 0 0 2px rgba(201,166,107,.3), inset 0 0 3cqw rgba(0,0,0,.6); border-radius: 3px; z-index: 5; }
 .mwin:focus-visible { outline: 2px solid var(--gold-hi); outline-offset: 2px; }
@@ -675,11 +675,11 @@ html.reduce-motion .tchip.fresh { animation: none; }
 /* torch light: warm pools that flicker, in screen blend so they brighten the painting */
 .torch { width: 9%; aspect-ratio: 1; transform: translate(-50%, -50%); border-radius: 50%; mix-blend-mode: screen;
   background: radial-gradient(circle, rgba(255,170,80,.55), rgba(255,120,40,.18) 45%, transparent 70%); animation: flicker 3.1s infinite ease-in-out; }
-.torch.t1 { left: 25%; top: 10%; animation-duration: 2.7s; }
-.torch.t2 { left: 29%; top: 17%; width: 7%; animation-duration: 3.4s; animation-delay: -1.1s; }
-.torch.t3 { left: 21.5%; top: 15%; width: 7%; animation-duration: 3.9s; animation-delay: -2.2s; }
-.torch.t4 { left: 17.5%; top: 75.4%; width: 20%; opacity: .55; animation-duration: 4.4s; }
-.torch.t5 { left: 37.7%; top: 78%; width: 11%; opacity: .5; animation-duration: 3.6s; animation-delay: -.7s;
+.torch.t1 { left: 22%; top: 11%; animation-duration: 2.7s; }
+.torch.t2 { left: 27%; top: 17%; width: 7%; animation-duration: 3.4s; animation-delay: -1.1s; }
+.torch.t3 { left: 17%; top: 14%; width: 7%; animation-duration: 3.9s; animation-delay: -2.2s; }
+.torch.t4 { left: 14.7%; top: 62.5%; width: 20%; opacity: .55; animation-duration: 4.4s; }
+.torch.t5 { left: 29%; top: 82%; width: 11%; opacity: .5; animation-duration: 3.6s; animation-delay: -.7s;
   background: radial-gradient(circle, rgba(255,205,120,.5), rgba(255,150,60,.12) 50%, transparent 70%); }
 @keyframes flicker {
   0%, 100% { opacity: .85; transform: translate(-50%, -50%) scale(1); }
@@ -704,13 +704,13 @@ html.reduce-motion .tchip.fresh { animation: none; }
 .glint { overflow: hidden; mix-blend-mode: screen; }
 .glint::after { content: ""; position: absolute; top: -20%; bottom: -20%; width: 35%; left: -50%; transform: skewX(-18deg);
   background: linear-gradient(90deg, transparent, rgba(255,226,160,.32), transparent); animation: glintsweep 9s ease-in-out infinite; }
-.glint.g-col { left: 46.9%; width: 13.4%; top: 10.5%; height: 78%; border-radius: 4px; }
-.glint.g-wheel { left: 9.2%; width: 16.6%; top: 63%; height: 24.7%; border-radius: 50%; }
+.glint.g-col { left: 40.5%; width: 14%; top: 18%; height: 76%; border-radius: 4px; }
+.glint.g-wheel { left: 0%; width: 29.5%; top: 47%; height: 31%; border-radius: 50%; }
 .glint.g-wheel::after { animation-delay: -4.5s; animation-duration: 11s; }
 @keyframes glintsweep { 0%, 55% { left: -50%; } 100% { left: 130%; } }
 
 /* the siege strip glows redder as the engines gather */
-.siege-glow { left: 44%; width: 55%; top: -4%; height: 18%; opacity: calc(var(--siege, 0) * .9);
+.siege-glow { left: 40%; width: 58%; top: 4%; height: 24%; opacity: calc(var(--siege, 0) * .9);
   background: radial-gradient(ellipse at 50% 20%, rgba(255,90,30,.55), transparent 70%); mix-blend-mode: screen; transition: opacity 1.2s; }
 
 /* vignette, lantern, danger */
@@ -728,3 +728,7 @@ html.reduce-motion .tchip.fresh { animation: none; }
 .amb-still .glint { display: none; }
 html.reduce-motion .stage .torch, html.reduce-motion .stage .fog, html.reduce-motion .stage .amb-danger { animation: none !important; }
 @media (prefers-reduced-motion: reduce) { html:not(.full-motion) .stage .torch, html:not(.full-motion) .stage .fog, html:not(.full-motion) .stage .amb-danger { animation: none !important; } }
+
+/* the quest slots on the tilted board are a little smaller: keep their text on one line */
+.slot { padding-right: 0.9cqw; padding-left: 0.8cqw; }
+.slot .qname { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 1.3cqw; }

@@ -88,7 +88,9 @@
 
   // ---------- board geometry (percent of board image 800x537) ----------
   const BOARD_W = 800, BOARD_H = 537;
-  const FRAME_TOP = [65, 125, 185, 245, 305, 365, 425];
+  // The painted board is a tilted view, so positions are measured in percent of the image (1168 x 784).
+  const SLOT_CENTERS = [28.1, 34.7, 42.7, 51.7, 61.0, 72.1, 84.8];   // vertical centre of each of the seven quest frames used
+  const WHEEL = { x: 14.7, y: 62.5, rx: 12.0, ry: 13.4 };            // the sword wheel's seat ring
 
   function buildStatic() {
     const row = $('siegeRow');
@@ -100,17 +102,17 @@
     for (let i = 0; i < C.SEATS; i++) {
       const a = (-90 + i * 30) * Math.PI / 180;
       const seat = el('span', 'seat');
-      seat.style.left = (17.5 + Math.cos(a) * (66 / BOARD_W * 100)) + '%';
-      seat.style.top = (75.4 + Math.sin(a) * (66 / BOARD_H * 100)) + '%';
+      seat.style.left = (WHEEL.x + Math.cos(a) * WHEEL.rx) + '%';
+      seat.style.top = (WHEEL.y + Math.sin(a) * WHEEL.ry) + '%';
       wheel.appendChild(seat);
     }
 
     const slots = $('slots');
     slots.innerHTML = '';
-    FRAME_TOP.forEach((y, i) => {
+    SLOT_CENTERS.forEach((y, i) => {
       const b = el('button', 'slot');
       b.type = 'button';
-      b.style.top = (y / BOARD_H * 100) + '%';
+      b.style.top = (y - 3.4) + '%';
       b.dataset.slot = i;
       b.addEventListener('click', () => onSlot(i));
       slots.appendChild(b);
