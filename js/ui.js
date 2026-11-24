@@ -465,6 +465,7 @@
     }
 
     renderTrail(s);
+    { const rn = s.rumors.length; if (ui.rumorCount != null && rn > ui.rumorCount) { const d = $('rumorDot'); const on = document.querySelector('.tabbar button.sel'); if (d && on && on.dataset.tab !== 'rumors') d.hidden = false; } ui.rumorCount = rn; }
     renderCoach();
     if (online) updateNetChip();
     renderWindows();
@@ -1322,7 +1323,7 @@
   const TOUR_KEY = 'citadel-tour-done';
   const TOUR_STEPS = [
     { target: () => $('stage'), title: 'The siege', text: 'Shadows are closing on the Citadel. Seat <b>7 white swords</b> on the wheel (bottom left) by finishing missions. Six black swords, or twelve siege engines along the top, and the Citadel falls.' },
-    { target: () => $('missions'), title: 'Missions', text: 'Each card is a mission. It has a <b>favoured suit</b> (the icon at top left: a card of that suit counts double), a progress bar and an hourglass: the rounds left before it fails.' },
+    { target: () => { setMissionsOpen(true); return $('missions'); }, title: 'Missions', text: 'Each card is a mission. It has a <b>favoured suit</b> (the icon at top left: a card of that suit counts double), a progress bar and an hourglass: the rounds left before it fails.' },
     { target: () => $('hand').closest('.panel'), title: 'Your hand', text: 'Four suits: Blade, Shield, Scroll and Boot. Click up to three cards to select them, then play them on the mission you are standing at.' },
     { target: () => $('actions').closest('.panel'), title: 'Your turn', text: 'Each defender gets <b>two actions</b>: move to a mission, play cards, gather supplies, rest, give a card or accuse. When you are done, press <b>End turn</b>. <b>Hint</b> suggests a sensible move.' },
     { target: () => $('shadowDeck'), title: 'The Shadow', text: 'Every turn starts with a Shadow card: siege engines, arrows, a whisper that steals a card, or treachery. You cannot stop it, only keep ahead of it.' },
@@ -1608,6 +1609,22 @@
   }
   $('btnInvite').onclick = () => { if (online && online.role === 'host') openRejoin(online.session); };
 
+  // ---------- less scrolling: tabs for the side panels, collapsible mission cards ----------
+  function showTab(name) {
+    document.querySelectorAll('.tabbar button').forEach(b => { const on = b.dataset.tab === name; b.classList.toggle('sel', on); b.setAttribute('aria-selected', String(on)); });
+    document.querySelectorAll('.tabpane').forEach(p => { p.hidden = p.dataset.pane !== name; });
+    if (name === 'rumors') { const d = $('rumorDot'); if (d) d.hidden = true; }
+    if (name === 'log') { const l = $('log'); if (l) l.scrollTop = l.scrollHeight; }
+  }
+  document.querySelectorAll('.tabbar button').forEach(b => { b.onclick = () => showTab(b.dataset.tab); });
+  function setMissionsOpen(open) {
+    $('missions').classList.toggle('collapsed', !open);
+    const b = $('btnMissions'); b.textContent = open ? 'Hide mission cards' : 'Show mission cards'; b.setAttribute('aria-expanded', String(open));
+    try { localStorage.setItem('citadel-missions-open', open ? '1' : '0'); } catch (e) { /* ignore */ }
+  }
+  $('btnMissions').onclick = () => setMissionsOpen($('missions').classList.contains('collapsed'));
+  try { if (localStorage.getItem('citadel-missions-open') === '1') setMissionsOpen(true); } catch (e) { /* ignore */ }
+
   function startOnlineHost(host) {
     closeModal(); delete $('modal').dataset.lock;
     ui.preview = false;
@@ -1717,7 +1734,7 @@
   // ---------- boot ----------
   function startFrom(g) {
     game = g;
-    ui.selectedSlot = null; ui.picked = []; ui.shownLog = 0; ui.prev = null; ui.endShown = false; ui.expKey = null; ui.undo = []; ui.coach = false;
+    ui.selectedSlot = null; ui.picked = []; ui.shownLog = 0; ui.prev = null; ui.endShown = false; ui.expKey = null; ui.undo = []; ui.coach = false; ui.rumorCount = null;
     closeExpedition(true);
     clearChronicle();
     $('log').innerHTML = '';

@@ -67,8 +67,9 @@
     <h2 class="missions-title">Path of destruction <small>every Shadow card so far; the fire creeps toward the Citadel</small></h2>
     <div class="trail" id="trail" role="list" aria-label="Shadow cards drawn so far"></div>
 
-    <h2 class="missions-title">Missions <small>deadline in rounds, favoured suit, progress. Select one to inspect it</small></h2>
-    <div class="missions" id="missions" role="list"></div>
+    <h2 class="missions-title">Missions <small>deadline in rounds, favoured suit, progress. Select one to inspect it</small>
+      <button type="button" class="ghost mini" id="btnMissions" aria-expanded="false" aria-controls="missions">Show mission cards</button></h2>
+    <div class="missions collapsed" id="missions" role="list"></div>
   </section>
 
   <aside class="side">
@@ -92,19 +93,15 @@
       <p class="msg" id="msg" role="status"></p>
     </section>
 
-    <section class="panel">
-      <h2>Defenders</h2>
-      <div class="party" id="party"></div>
-    </section>
-
-    <section class="panel">
-      <h2>Rumors <small>who was near each sabotage</small></h2>
-      <div id="rumors" class="rumors"></div>
-    </section>
-
-    <section class="panel">
-      <h2>Chronicle</h2>
-      <div class="log" id="log" aria-live="polite"></div>
+    <section class="panel tabs-panel">
+      <div class="tabbar" role="tablist">
+        <button type="button" role="tab" class="sel" data-tab="party" aria-selected="true">Defenders</button>
+        <button type="button" role="tab" data-tab="rumors" aria-selected="false">Rumors <i id="rumorDot" class="dot" hidden></i></button>
+        <button type="button" role="tab" data-tab="log" aria-selected="false">Chronicle</button>
+      </div>
+      <div class="tabpane" data-pane="party"><div class="party" id="party"></div></div>
+      <div class="tabpane" data-pane="rumors" hidden><p class="muted-note">Who was near each sabotage</p><div id="rumors" class="rumors"></div></div>
+      <div class="tabpane" data-pane="log" hidden><div class="log" id="log" aria-live="polite"></div></div>
     </section>
   </aside>
 </main>

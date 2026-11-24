@@ -207,6 +207,9 @@ Things to know:
 - The host must stay in the game. If the host leaves, the game ends for everyone. There is no reconnecting after a drop.
 - Hands are visible to all players (the active defender's hand is always shown).
 
+### Less scrolling
+On a desktop screen the board is sized to fit your window height, so the board and the Shadow trail are visible without scrolling. Defenders, Rumors and the Chronicle share one tabbed panel (a red dot on **Rumors** means a new sabotage rumor), and the big mission cards are tucked behind **Show mission cards** (the board already lists each mission).
+
 ### Practice, Undo and more
 - **Practice (guided)** on the setup screen starts a short easy 3-defender game with a coach box that says what to do next.
 - **Undo** (offline only, key **U**) takes back your last action this turn. It is not available after End turn, for accusations, or online.
