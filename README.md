@@ -83,6 +83,10 @@ You lose if any of these happen:
    - **Gather supplies**: draw 2 cards. You may hold more than 7 during your turn; at its end, **Discard** the cards
      you choose (free), or the oldest go
    - **Rest** at the Citadel: everyone there heals 1
+   - **Tend wounds** anywhere: discard two cards of one suit to heal 1, yourself or a defender standing with you
+   - **Sortie** from the Citadel: ride out with 1 to 3 cards (Blades 2, others 1). Beat an eight-sided die and a
+     siege engine burns; fail and you are wounded
+   - **Press on** (free, once per turn): lose 1 health for one more action, never from your last point
    - **Give a card** to a defender standing in the same place
    - **Accuse** a defender (needs at least one sabotage rumor)
 
@@ -151,6 +155,8 @@ a short list of defenders seen nearby. **The Traitor is always on the list.** Co
 - **Right:** the Traitor is exiled, a white sword is seated, and the sabotage stops.
 - **Wrong:** the accused loses their next turn and a black sword is seated.
 - A Traitor who **falls in battle** is unmasked and seats no black sword.
+- **Last betrayal:** a Traitor still hidden when the 7th white sword is seated throws off the mask and breaks one
+  white sword (it turns black), and the game goes on. Finding them before the end really matters.
 
 A sabotage is a **plot** that springs at the start of a later turn (within one trip round the table), often on
 someone else's turn, so *when* it happened proves nothing. It strikes a mission with progress (up to 2 progress lost)
@@ -306,11 +312,11 @@ about 88% on Easy, 45% on Normal and 20% on Hard. Measured over 1,500 games each
 
 | Defenders | Easy | Normal | Hard |
 |---|---|---|---|
-| 3 | 88% | 45% | 21% |
-| 4 | 90% | 43% | 18% |
-| 5 | 88% | 45% | 19% |
-| 6 | 89% | 45% | 22% |
-| 7 | 88% | 45% | 18% |
+| 3 | 87% | 46% | 19% |
+| 4 | 90% | 42% | 19% |
+| 5 | 87% | 45% | 20% |
+| 6 | 88% | 43% | 21% |
+| 7 | 88% | 43% | 19% |
 
 (`tests.html` prints a smaller 150-game sample, so expect a few points of noise there.) Mission costs use random
 rounding, so the average cost changes smoothly as you tune. The bot is a simple greedy player: it never passes cards

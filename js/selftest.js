@@ -119,6 +119,29 @@
       p.hand = saved; H.render(); }
     check('the Feedback button stays hidden until a form is set', $('btnFeedback').hidden);
 
+    // sortie, tend wounds, press on
+    { const gg = H.game, a = gg.active, p = gg.party[a], saved = { hand: p.hand.slice(), loc: p.loc, hp: p.hp, siege: gg.siege, acts: gg.actionsLeft, ward: gg.ward };
+      document.querySelectorAll('#hand .card.selected').forEach(c => click(c));
+      p.loc = C.CITADEL; gg.siege = 5; gg.actionsLeft = 2; gg.ward = 0;
+      p.hand = [{ id: 7801, suit: 'blade' }, { id: 7802, suit: 'blade' }, { id: 7803, suit: 'boot' }, { id: 7804, suit: 'boot' }]; H.render();
+      check('at the Citadel a Sortie button waits for cards', !!btnByText($('actions'), /^Sortie/) && btnByText($('actions'), /^Sortie/).disabled);
+      click(document.querySelectorAll('#hand .card')[0]); click(document.querySelectorAll('#hand .card')[1]);
+      const sb = btnByText($('actions'), /^Sortie/);
+      const tot = C.sortieValue(gg, a, [7801, 7802]);
+      check('the Sortie button shows the odds', sb.textContent.includes(`${tot} vs d8, ${Math.round(C.sortieChance(tot) * 100)}%`) && tot >= 4, sb.textContent);
+      const siege0 = gg.siege, hp0 = p.hp; click(sb);
+      check('a sortie either burns an engine or wounds the rider', (gg.siege === siege0 - 1 && p.hp === hp0) || (gg.siege === siege0 && p.hp === hp0 - 1));
+      p.hp = 1; gg.actionsLeft = 2; H.render();
+      click(document.querySelectorAll('#hand .card')[0]); click(document.querySelectorAll('#hand .card')[1]);
+      const tb = btnByText($('actions'), /^Tend wounds/);
+      check('two cards of one suit enable Tend wounds', !!tb && !tb.disabled);
+      click(tb);
+      check('tending heals 1 and spends the pair', p.hp === 2 && p.hand.length === 0);
+      const pb = btnByText($('actions'), /^Press on/);
+      check('Press on adds an action for 1 health', !!pb && !pb.disabled && (click(pb), gg.actionsLeft === 2 && p.hp === 1));
+      check('Press on works once per turn', btnByText($('actions'), /^Press on/).disabled);
+      p.hand = saved.hand; p.loc = saved.loc; p.hp = saved.hp; gg.siege = saved.siege; gg.actionsLeft = saved.acts; gg.ward = saved.ward; gg.pressedOn = false; H.render(); }
+
     // sound toggle
     const sb = $('btnSound');
     if (!sb.hidden) {

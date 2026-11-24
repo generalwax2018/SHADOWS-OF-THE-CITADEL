@@ -190,6 +190,7 @@ test('all defenders falling loses', () => {
 });
 test('seating the 7th white sword wins', () => {
   const s = fresh(24, 5);
+  s.traitorRevealed = true;                       // with the Traitor still hidden, see "the Traitor's last betrayal"
   for (let i = 0; i < 6; i++) s.seats[i] = 'white';
   s.party[s.active].id = 'shield'; C.move(s, 0);
   const q = s.quests[0]; q.progress = q.needed - 1;
@@ -254,6 +255,8 @@ test('suggest always returns a legal move (100 seeded games played only by hints
       else if (h.type === 'draw') r = C.drawAction(s);
       else if (h.type === 'rest') r = C.rest(s);
       else if (h.type === 'accuse') r = C.accuse(s, h.target);
+      else if (h.type === 'tend') r = C.tend(s, h.cards, h.target);
+      else if (h.type === 'sortie') r = C.sortie(s, h.cards);
       else r = C.endTurn(s);
       steps++;
       ok(r.ok, `seed ${seed}: hint ${h.type} was rejected: ${r.msg}`);
@@ -454,6 +457,58 @@ test('discard: choose cards over the hand limit, free, only down to the limit; t
   const t = fresh(94, 5); t.party[t.active].hand.splice(C.HAND_LIMIT);
   ok(!C.discard(t, [t.party[t.active].hand[0].id]).ok, 'nothing to discard within the limit');
 });
+test('sortie: only from the Citadel with engines to strike; Blades count 2; win burns an engine, loss wounds', () => {
+  const s = fresh(201, 5); const a = s.active, p = s.party[a]; p.id = 'shield'; p.hp = 4; p.maxHp = 4; s.ward = 0;
+  p.hand = [{ id: 1, suit: 'blade' }, { id: 2, suit: 'blade' }, { id: 3, suit: 'scroll' }, { id: 4, suit: 'boot' }];
+  s.siege = 0; ok(!C.sortie(s, [1]).ok, 'no engines, no sortie');
+  s.siege = 5; p.loc = 0; ok(!C.sortie(s, [1]).ok, 'only from the Citadel'); p.loc = C.CITADEL;
+  eq(C.sortieValue(s, a, [1, 2, 3]), 5, 'Blade 2 + Blade 2 + Scroll 1');
+  ok(!C.sortie(s, [1, 2, 3, 4]).ok, 'at most 3 cards');
+  eq(C.sortieChance(5), 4 / 8, 'chance to beat a d8 with 5'); eq(C.sortieChance(1), 0); eq(C.sortieChance(12), 1);
+  const r = C.sortie(s, [1, 2, 3]);
+  ok(r.ok && r.roll >= 1 && r.roll <= 8, 'rolled 1-8');
+  eq(s.actionsLeft, 1, 'costs an action'); eq(p.hand.length, 1, 'cards are spent');
+  if (r.won) eq(s.siege, 4, 'an engine burns'); else { eq(s.siege, 5); eq(p.hp, 3, 'the rider is wounded'); }
+  let wins = 0; for (let seed = 1; seed <= 300; seed++) { const t = fresh(seed, 5); const q = t.party[t.active]; q.loc = C.CITADEL; q.hp = 4; q.maxHp = 4; t.ward = 0; t.siege = 6; q.hand = [{ id: 9, suit: 'scroll' }, { id: 8, suit: 'boot' }, { id: 7, suit: 'shield' }]; if (C.sortie(t, [9, 8, 7]).won) wins++; }
+  ok(wins > 300 * 0.12 && wins < 300 * 0.40, `a 3-point sortie wins about 25% (${wins}/300)`);
+});
+test('tend wounds: two cards of one suit heal 1, yourself or a defender with you, never past full', () => {
+  const s = fresh(202, 5); const a = s.active, b = (a + 1) % 5, p = s.party[a];
+  s.party.forEach(q => { q.loc = 2; }); p.hp = 1; s.party[b].hp = s.party[b].maxHp;
+  p.hand = [{ id: 1, suit: 'boot' }, { id: 2, suit: 'boot' }, { id: 3, suit: 'blade' }];
+  ok(!C.tend(s, [1, 3], a).ok, 'suits must match');
+  ok(!C.tend(s, [1, 2], b).ok, 'cannot heal someone at full health');
+  ok(C.tend(s, [1, 2], a).ok, 'bind your own wounds');
+  eq(p.hp, 2); eq(p.hand.length, 1); eq(s.actionsLeft, 1, 'costs an action');
+  s.party[b].hp = 1; s.party[b].loc = 4; p.hand.push({ id: 5, suit: 'scroll' }, { id: 6, suit: 'scroll' });
+  ok(!C.tend(s, [5, 6], b).ok, 'only someone standing with you');
+  s.party[b].loc = 2; ok(C.tend(s, [5, 6], b).ok, 'tend a companion'); eq(s.party[b].hp, 2);
+});
+test('press on: once per turn, 1 health for 1 more action, never from the last point', () => {
+  const s = fresh(203, 5); const p = s.party[s.active]; p.hp = 3; s.actionsLeft = 0;
+  ok(C.pressOn(s).ok); eq(s.actionsLeft, 1); eq(p.hp, 2);
+  ok(!C.pressOn(s).ok, 'only once per turn');
+  const t = fresh(204, 5); t.party[t.active].hp = 1; ok(!C.pressOn(t).ok, 'not at 1 health');
+  C.endTurn(s); eq(s.pressedOn, false, 'resets each turn');
+});
+test('the Traitor\'s last betrayal: hidden at the moment of victory, they break a white sword', () => {
+  const s = fresh(205, 5); s.party.forEach(p => { p.alive = true; p.exiled = false; });
+  for (let i = 0; i < 6; i++) s.seats[i] = 'white';
+  const a = s.traitor === s.active ? (s.active + 1) % 5 : s.active; s.active = a; s.actionsLeft = 2;
+  s.party[a].id = 'shield'; C.move(s, 0); const q = s.quests[0]; q.progress = q.needed - 1; q.mod = null;
+  s.party[a].hand = [{ id: 970, suit: C.questDef(q.id).suit }];
+  C.contribute(s, [970]);
+  ok(!s.over || !s.over.win, 'not a win yet');
+  ok(s.traitorRevealed && s.party[s.traitor].exiled, 'the Traitor is unmasked and gone');
+  eq(C.count(s, 'white'), 6, 'one white sword broke'); eq(C.count(s, 'black'), 1, 'and turned black');
+  // unmask them first and the 7th sword wins outright
+  const t = fresh(206, 5); for (let i = 0; i < 5; i++) t.seats[i] = 'white'; t.rumors = [[t.traitor]];
+  const acc = t.traitor === t.active ? (t.active + 1) % 5 : t.active; t.active = acc; t.actionsLeft = 2;
+  ok(C.accuse(t, t.traitor).ok); eq(C.count(t, 'white'), 6, 'a right accusation seats a white sword');
+  t.party[acc].id = 'shield'; C.move(t, 0); const q2 = t.quests[0]; q2.progress = q2.needed - 1; q2.mod = null;
+  t.party[acc].hand = [{ id: 971, suit: C.questDef(q2.id).suit }]; t.actionsLeft = 1; C.contribute(t, [971]);
+  ok(t.over && t.over.win, 'with the Traitor unmasked, the 7th white sword wins');
+});
 test('mage sees next shadow card, others do not', () => {
   const s = C.createGame({ seed: 5, partySize: 7 });
   ok(C.nextShadowPeek(s) !== null);
@@ -473,6 +528,7 @@ function bot(s) {
       if (top.length === 1 && C.accuse(s, top[0][1]).ok) continue;
     }
     if (p.hp <= 1 && p.loc === C.CITADEL && C.rest(s).ok) continue;
+    { const h = C.suggest(s); if (h && h.type === 'tend' && C.tend(s, h.cards, h.target).ok) continue; if (h && h.type === 'sortie' && C.sortie(s, h.cards).ok) continue; }
     const here = p.loc >= 0 ? s.quests[p.loc] : null;
     const best = (slot) => {
       const q = s.quests[slot]; if (!q) return null;

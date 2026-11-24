@@ -11,7 +11,8 @@
   const C = root.Citadel, N = root.CitadelNet;
 
   const ACTIONS = {
-    move: 1, contribute: 1, drawAction: 0, rest: 0, accuse: 1, give: 2, endTurn: 0, sabotageAction: 1, discard: 1
+    move: 1, contribute: 1, drawAction: 0, rest: 0, accuse: 1, give: 2, endTurn: 0, sabotageAction: 1, discard: 1,
+    sortie: 1, tend: 2, pressOn: 0
   };
   // Actions whose effect only the actor may see: everyone else gets no message at all, so not even the
   // arrival of a state update hints that something happened.
@@ -28,7 +29,8 @@
 
   function validArgs(name, args) {
     if (!Array.isArray(args) || args.length !== ACTIONS[name]) return false;
-    if (name === 'contribute') return Array.isArray(args[0]) && args[0].length <= C.MAX_CONTRIBUTE && args[0].every(Number.isInteger);
+    if (name === 'contribute' || name === 'sortie') return Array.isArray(args[0]) && args[0].length <= C.MAX_CONTRIBUTE && args[0].every(Number.isInteger);
+    if (name === 'tend') return Array.isArray(args[0]) && args[0].length === 2 && args[0].every(Number.isInteger) && Number.isInteger(args[1]);
     if (name === 'discard') return Array.isArray(args[0]) && args[0].length <= 48 && args[0].every(Number.isInteger);
     return args.every(Number.isInteger);
   }
@@ -245,6 +247,8 @@
         else if (h.type === 'draw') r = C.drawAction(g);
         else if (h.type === 'rest') r = C.rest(g);
         else if (h.type === 'accuse') r = C.accuse(g, h.target);
+        else if (h.type === 'tend') r = C.tend(g, h.cards, h.target);
+        else if (h.type === 'sortie') r = C.sortie(g, h.cards);
       }
       // Out of actions, nothing useful to do, or the suggestion was refused: pass the turn.
       if (!g.over && (!h || h.type === 'end' || !r.ok || g.actionsLeft <= 0)) C.endTurn(g);

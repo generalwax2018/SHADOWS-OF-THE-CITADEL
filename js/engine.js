@@ -73,9 +73,9 @@
   // cards) before each deadline. These multipliers on needScale keep 3 to 7 defenders comparably difficult.
   // They are fitted per difficulty by bot simulation (tests.html prints the resulting win rates).
   const SIZE_NEED = {
-    easy:   { 3: 0.52, 4: 0.52, 5: 0.79, 6: 1.18, 7: 1.47 },    // bot wins about 88%
-    normal: { 3: 0.62, 4: 0.77, 5: 0.98, 6: 1.15, 7: 1.29 },    // about 45%
-    hard:   { 3: 0.63, 4: 0.85, 5: 1.01, 6: 1.14, 7: 1.29 }     // about 20%
+    easy:   { 3: 0.52, 4: 0.50, 5: 0.73, 6: 1.18, 7: 1.42 },    // bot wins about 88%
+    normal: { 3: 0.61, 4: 0.75, 5: 0.96, 6: 1.12, 7: 1.26 },    // about 45%
+    hard:   { 3: 0.63, 4: 0.84, 5: 0.99, 6: 1.12, 7: 1.26 }     // about 20%
   };
 
   // ---------- randomness ----------
@@ -189,6 +189,17 @@
   function addSword(s, color) {
     const seat = s.seats.indexOf(null);
     if (seat >= 0) s.seats[seat] = color;
+    // The Traitor's last betrayal: a Traitor still hidden when the Citadel is about to hold throws off the mask and
+    // breaks one white sword (it turns black). Unmasking them earlier is the only way to be safe from this.
+    if (color === 'white' && !s.over && count(s, 'white') >= WIN_WHITE && !s.traitorRevealed) {
+      const t = s.party[s.traitor];
+      if (t && t.alive && !t.exiled) {
+        s.traitorRevealed = true; t.exiled = true; s.plot = null;
+        const k = s.seats.lastIndexOf('white');
+        if (k >= 0) s.seats[k] = 'black';
+        say(s, `Betrayal! At the moment of triumph ${defenderDef(t.id).name} throws off the mask: they were the Traitor, and a white sword turns black.`, 'lose');
+      }
+    }
     checkEnd(s);
   }
 
@@ -404,6 +415,7 @@
     s.maxActions = has(s, s.active, 'cavalry') ? 3 : 2;
     s.actionsLeft = s.maxActions;
     s.swiftUsed = false;
+    s.pressedOn = false;
     const nm = defenderDef(s.party[s.active].id).name;
     say(s, `-- Turn ${s.turn}: ${nm} --`, 'turn');
     drawShadow(s);
@@ -602,6 +614,77 @@
     return { ok: true };
   }
 
+  // Sortie: from the Citadel, ride out against one siege engine. Play 1 to 3 cards; Blades count 2, the others 1
+  // (the Berserker's Blades 3). Roll an eight-sided die: beat it and the engine burns, otherwise you are wounded.
+  const SORTIE_DIE = 8;
+  function sortieValue(s, idx, cardIds) {
+    const p = s.party[idx];
+    return Array.from(new Set(cardIds || [])).reduce((n, id) => {
+      const c = p.hand.find(x => x.id === id);
+      if (!c) return n;
+      return n + (c.suit === 'blade' ? (has(s, idx, 'berserker') ? 3 : 2) : 1);
+    }, 0);
+  }
+  function sortieChance(total) { return Math.max(0, Math.min(SORTIE_DIE, total - 1)) / SORTIE_DIE; }
+  function sortie(s, cardIds) {
+    const bad = canAct(s); if (bad) return bad;
+    const idx = s.active, p = s.party[idx];
+    if (p.loc !== CITADEL) return fail('Sorties ride out from the Citadel.');
+    if (s.siege <= 0) return fail('There is no siege engine to strike.');
+    const ids = Array.from(new Set(cardIds || []));
+    if (ids.length === 0) return fail('Select 1 to 3 cards to ride out with.');
+    if (ids.length > MAX_CONTRIBUTE) return fail(`Ride out with at most ${MAX_CONTRIBUTE} cards.`);
+    if (!ids.every(id => p.hand.some(c => c.id === id))) return fail('Those cards are not in your hand.');
+    const total = sortieValue(s, idx, ids);
+    ids.forEach(id => { const k = p.hand.findIndex(c => c.id === id); s.whiteDiscard.push(p.hand.splice(k, 1)[0]); });
+    spend(s, 1);
+    const roll = 1 + randInt(s, SORTIE_DIE);
+    const nm = defenderDef(p.id).name;
+    if (total > roll) {
+      addSiege(s, -1);
+      if (s.stats) s.stats.sorties = (s.stats.sorties || 0) + 1;
+      say(s, `Sortie! ${nm} rides out (${total} against ${roll}) and a siege engine burns.`, 'win');
+    } else {
+      say(s, `Sortie! ${nm} rides out (${total} against ${roll}) and is driven back.`, 'lose');
+      damage(s, idx, 1);
+      if (!p.alive) s.actionsLeft = 0;
+    }
+    return { ok: true, total, roll, won: total > roll };
+  }
+
+  // Tend wounds: discard two cards of one suit to heal 1, yourself or a defender standing with you. Works anywhere.
+  function tend(s, cardIds, target) {
+    const bad = canAct(s); if (bad) return bad;
+    const idx = s.active, p = s.party[idx];
+    const ids = Array.from(new Set(cardIds || []));
+    if (target === undefined || target === null) target = idx;
+    const t = s.party[target];
+    if (!t || !t.alive || t.exiled) return fail('Choose a living defender.');
+    if (t.loc !== p.loc) return fail('You can only tend someone standing with you.');
+    if (t.hp >= t.maxHp) return fail(`${defenderDef(t.id).name} is not wounded.`);
+    if (ids.length !== 2) return fail('Select two cards of the same suit.');
+    const cards = ids.map(id => p.hand.find(c => c.id === id));
+    if (cards.some(c => !c)) return fail('Those cards are not in your hand.');
+    if (cards[0].suit !== cards[1].suit) return fail('The two cards must share a suit.');
+    ids.forEach(id => { const k = p.hand.findIndex(c => c.id === id); s.whiteDiscard.push(p.hand.splice(k, 1)[0]); });
+    spend(s, 1);
+    t.hp++;
+    say(s, target === idx ? `${defenderDef(p.id).name} binds their wounds (${t.hp}/${t.maxHp}).`
+      : `${defenderDef(p.id).name} tends ${defenderDef(t.id).name}'s wounds (${t.hp}/${t.maxHp}).`, 'win');
+    return { ok: true };
+  }
+
+  // Press on: once per turn, spend 1 health for one more action. Never from your last point of health.
+  function pressOn(s) {
+    if (s.over) return fail('The game is over.');
+    const p = s.party[s.active];
+    if (s.pressedOn) return fail('You have already pressed on this turn.');
+    if (p.hp <= 1) return fail('Too weak to press on.');
+    p.hp--; s.actionsLeft++; s.pressedOn = true;
+    say(s, `${defenderDef(p.id).name} presses on through the pain (+1 action, ${p.hp}/${p.maxHp}).`, '');
+    return { ok: true };
+  }
+
   function accuse(s, target) {
     const bad = canAct(s); if (bad) return bad;
     if (s.rumors.length === 0) return fail('No evidence yet. Wait for a sabotage.');
@@ -715,6 +798,18 @@
     }
     const hurt = s.party.some(q => q.alive && !q.exiled && q.loc === CITADEL && q.hp < q.maxHp);
     if (p.loc === CITADEL && hurt && p.hp <= 1) return { type: 'rest', text: 'You are nearly down. Rest at the Citadel.' };
+    if (p.hp <= 1 && p.hp < p.maxHp) {                 // away from the Citadel: bind your wounds with a pair
+      const bySuit = {};
+      p.hand.forEach(c => { (bySuit[c.suit] = bySuit[c.suit] || []).push(c.id); });
+      const q = p.loc >= 0 ? s.quests[p.loc] : null, fav = q ? questDef(q.id).suit : null;
+      const su = SUITS.filter(x => (bySuit[x] || []).length >= 2).sort((a, b) => (a === fav) - (b === fav))[0];
+      if (su) return { type: 'tend', cards: bySuit[su].slice(0, 2), target: idx, text: `You are nearly down. Discard two ${SUIT_LABEL[su]} cards to bind your wounds.` };
+    }
+    if (p.loc === CITADEL && s.siege >= 7) {           // the walls are about to fall: ride out against an engine
+      const ids = p.hand.map(c => ({ id: c.id, v: sortieValue(s, idx, [c.id]) })).sort((a, b) => b.v - a.v).slice(0, MAX_CONTRIBUTE).map(x => x.id);
+      const total = sortieValue(s, idx, ids);
+      if (ids.length && sortieChance(total) >= 0.5) return { type: 'sortie', cards: ids, text: `The siege is closing in. Ride out with ${ids.length} card${ids.length > 1 ? 's' : ''} (${total} against a d${SORTIE_DIE}, ${Math.round(sortieChance(total) * 100)}% to burn an engine).` };
+    }
 
     const here = bestPlay(s, idx, !!(opts && opts.smart));
     if (here) {
@@ -748,6 +843,7 @@
     SUITS, SUIT_LABEL, MODS, POWERS, WARD_MAX, suitPowers, SEATS, WIN_WHITE, LOSE_BLACK, SIEGE_MAX, HAND_LIMIT, SLOTS, CITADEL, MAX_CONTRIBUTE,
     DEFENDERS, QUEST_DEFS, DIFFICULTY, SIZE_NEED,
     createGame, move, contribute, contributeValue, drawAction, rest, accuse, give, endTurn, sabotageAction, discard,
+    sortie, sortieValue, sortieChance, SORTIE_DIE, tend, pressOn,
     suggest, redact, suspicion, nextShadowPeek, questDef, defenderDef, count, livingIdx, locName, clone, rumorSize
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

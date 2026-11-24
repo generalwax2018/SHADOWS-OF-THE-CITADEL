@@ -806,8 +806,21 @@
       () => act(() => { const r = perform('contribute', ui.picked.slice()); ui.picked = []; return r; }),
       { cls: 'primary', disabled: !q || ui.picked.length === 0, title: 'Matching suit counts double. Two cards of one suit also trigger that suit\'s power.' });
 
+    // Sortie: ride out from the Citadel with the selected cards against one siege engine
+    if (p.loc === C.CITADEL) {
+      const tot = C.sortieValue(s, s.active, ui.picked), pct = Math.round(C.sortieChance(tot) * 100);
+      btn(ui.picked.length ? `Sortie (${tot} vs d${C.SORTIE_DIE}, ${pct}%)` : 'Sortie...', () => act(() => { const r = perform('sortie', ui.picked.slice()); ui.picked = []; if (r && r.ok && r.roll) r.msg = r.won ? `Rolled ${r.roll}: your ${r.total} wins. A siege engine burns!` : `Rolled ${r.roll}: your ${r.total} falls short. You are driven back.`; return r; }),
+        { cls: 'siege-act', disabled: s.siege <= 0 || ui.picked.length === 0 || ui.picked.length > C.MAX_CONTRIBUTE,
+          title: `Ride out against a siege engine. Select 1 to 3 cards: Blades count 2, others 1. Beat a ${C.SORTIE_DIE}-sided die and an engine burns; fail and you are wounded.` });
+    }
     btn('Gather supplies', () => act(() => perform('drawAction')), { title: 'Draw 2 cards (3 for Lord Harren) [G]' });
     btn('Rest', () => act(() => perform('rest')), { disabled: p.loc !== C.CITADEL, title: 'At the Citadel: everyone there heals 1 [R]' });
+    const pair = ui.picked.length === 2 && (() => { const cs = ui.picked.map(id => p.hand.find(c => c.id === id)); return cs[0] && cs[1] && cs[0].suit === cs[1].suit; })();
+    const patients = tendTargets();
+    btn('Tend wounds', openTend, { disabled: !pair || patients.length === 0,
+      title: 'Select two cards of the same suit, then heal 1: yourself or a wounded defender standing with you. Works anywhere.' });
+    btn('Press on', () => act(() => perform('pressOn')), { cls: 'ghost', needAction: false, disabled: !!s.pressedOn || p.hp <= 1,
+      title: 'Once per turn: lose 1 health for one more action. Not from your last point of health.' });
     const mates = giveTargets();
     btn('Give card...', openGive, { disabled: ui.picked.length !== 1 || mates.length === 0,
       title: 'Select exactly one card, then pass it to a defender standing in the same place' });
@@ -854,6 +867,23 @@
     box.querySelector('[data-a="cancel"]').onclick = closeModal;
   }
 
+  function tendTargets() {
+    const s = game, p = s.party[s.active];
+    return s.party.map((q, i) => i).filter(i => s.party[i].alive && !s.party[i].exiled && s.party[i].loc === p.loc && s.party[i].hp < s.party[i].maxHp);
+  }
+  function openTend() {
+    const s = game, ids = ui.picked.slice(), who = tendTargets();
+    if (ids.length !== 2 || !who.length) return;
+    const go = i => { ui.picked = []; act(() => perform('tend', ids, i)); };
+    if (who.length === 1) { go(who[0]); return; }
+    let h = '<h2 id="modalTitle">Tend whose wounds?</h2><p>Discard the two cards to heal 1. This costs 1 action.</p><div class="pick">';
+    who.forEach(i => { h += `<button type="button" data-i="${i}"><div class="portrait"><img src="${portraitUrl(i)}" alt=""></div>${esc(dname(i))}${i === s.active ? ' (you)' : ''}<br><small>${s.party[i].hp}/${s.party[i].maxHp} health</small></button>`; });
+    h += '</div><div class="modal-actions"><button type="button" data-a="cancel">Cancel</button></div>';
+    openModal(h);
+    $('modalCard').querySelectorAll('.pick button').forEach(b => b.onclick = () => { closeModal(); go(+b.dataset.i); });
+    $('modalCard').querySelector('[data-a="cancel"]').onclick = closeModal;
+  }
+
   function giveTargets() {
     const s = game, p = s.party[s.active];
     return s.party.map((q, i) => i).filter(i => i !== s.active && s.party[i].alive && !s.party[i].exiled &&
@@ -864,7 +894,7 @@
     if (!game || game.over || !mine()) return;
     const h = C.suggest(game);
     if (!h) return;
-    if (h.type === 'play') ui.picked = h.cards.slice();
+    if (h.type === 'play' || h.type === 'tend' || h.type === 'sortie') ui.picked = h.cards.slice();
     if (h.type === 'move') ui.selectedSlot = h.dest;
     render();
     flash('Hint: ' + h.text, true);
@@ -958,6 +988,10 @@
       return card('power', 'complete', `${pm[1]} pair: ${pm[2]}`, t.replace(/^\w+ pair, \w+:\s*/, '').replace(/^./, c => c.toUpperCase()), 'win');
     }
     if (/A ward shatters/.test(t)) return card('power', 'complete', 'Ward Shatters', clean, 'win');
+    if (/^Betrayal!/.test(t)) return card('traitor', 'eye', 'Betrayal at the Last', clean, 'lose');
+    if (/^Sortie!.*burns/.test(t)) return card('siege', 'sword', 'Sortie: An Engine Burns', clean, 'win');
+    if (/^Sortie!.*driven back/.test(t)) return card('wound', 'wound', 'Sortie Driven Back', clean, 'lose');
+    if (/binds their wounds|tends .* wounds/.test(t)) return card('rest', 'heart', 'Wounds Tended', clean, 'win');
     if (/ is complete!/.test(t)) return card('complete', 'complete', 'Mission Complete', clean, 'win');
     if (/ has failed!/.test(t)) return card('failed', 'failed', 'Mission Failed', clean, 'lose');
     if (/ is the Traitor!/.test(t)) return card('traitor', 'eye', 'The Traitor Is Unmasked', clean, 'win');
@@ -1450,6 +1484,9 @@
         '<b>Blade</b> Charge pushes the siege back one. <b>Shield</b> Ward absorbs the next wound anyone takes (hold up to two). ' +
         '<b>Scroll</b> Lore gives the quest one more round. <b>Boot</b> Swift makes the play cost no action. Choose your pairs.</li>' +
       '<li><b>Give card:</b> pass one card to a defender standing in the same place (1 action).</li>' +
+      '<li><b>Sortie</b> (at the Citadel): ride out with 1 to 3 cards, Blades worth 2, others 1. Beat an eight-sided die and a siege engine burns; fail and you are wounded.</li>' +
+      '<li><b>Tend wounds:</b> discard two cards of one suit to heal 1, yourself or someone standing with you, anywhere. <b>Rest</b> at the Citadel heals everyone there.</li>' +
+      '<li><b>Press on:</b> once per turn, lose 1 health for one more action (never from your last point).</li>' +
       '<li><b>Hand limit 7:</b> you may hold more during your turn. At its end, choose what to <b>Discard</b>, or the oldest cards go.</li>' +
       '<li><b>Hint</b> suggests a sensible next step. <b>Undo</b> takes back an action, but not one that drew cards.</li>' +
       '<li>Quests have a deadline in rounds. Miss it and a black sword is seated.</li>' +
@@ -1458,7 +1495,8 @@
       '<li>A sabotage springs at the <b>start of a turn</b>, on anyone\'s turn, so its timing tells you nothing.</li>' +
       '<li>Each sabotage produces a rumor: a short list of who was near. The Traitor is <b>always</b> on it, so compare rumors.</li>' +
       '<li>Accuse a defender: right seats a white sword and ends the sabotage; wrong stuns them and seats a black sword. ' +
-        'A Traitor who falls in battle is unmasked and seats no black sword.</li></ul>' +
+        'A Traitor who falls in battle is unmasked and seats no black sword.</li>' +
+      '<li><b>Do not leave them hidden.</b> If the Traitor is still hidden when the 7th white sword is seated, they betray you at the last: one white sword turns black and the fight goes on.</li></ul>' +
       '<h3>Online</h3><ul><li>Each friend controls one defender; empty seats are played by bots.</li>' +
       '<li>If the Traitor is a person, they secretly <b>lay a plot</b> (free) against a mission or the gates; it springs a few turns later. Their role is shown only to them.</li>' +
       '<li>If the host closes the page, they can <b>Resume hosted game</b> from the start screen and invite everyone back.</li></ul>' +
