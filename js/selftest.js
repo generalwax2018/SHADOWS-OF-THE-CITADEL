@@ -551,7 +551,12 @@
       check('the path of destruction lists the Shadow cards drawn', !!tr && tr.querySelectorAll('.tchip:not(.citadel)').length === Math.min(24, n) && n >= 1);
       check('the path ends at the Citadel', !!tr.querySelector('.tchip.citadel'));
       check('the newest Shadow card is marked', !!tr.querySelector('.tchip.last'));
-    }    // the crash guard: an error is reported to the player and collected, and the game stays usable
+    }    // guided practice game
+    { window.__citadel.startPractice();
+      const cb = document.getElementById('coach');
+      check('Practice starts a 3-defender easy game with a coach', window.__citadel.game.party.length === 3 && window.__citadel.game.difficulty === 'easy' && !cb.hidden && /Step 1/.test(cb.textContent));
+      click(cb.querySelector('button'));
+      check('the coach can be dismissed', document.getElementById('coach').hidden); }    // the crash guard: an error is reported to the player and collected, and the game stays usable
     {
       const before = window.__citadelErrors.length;
       H.reportError(new Error('test error'));

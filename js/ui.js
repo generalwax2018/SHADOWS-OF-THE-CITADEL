@@ -465,6 +465,7 @@
     }
 
     renderTrail(s);
+    renderCoach();
     if (online) updateNetChip();
     renderWindows();
     renderMissions();
@@ -1139,6 +1140,31 @@
       '<button type="button" data-a="daily">' + (t ? 'Play again' : 'Play today\'s game') + '</button></div>' +
       '<p class="hint-line">Everyone gets the same game today: 5 defenders, Normal.</p>';
   }
+  // A guided practice game: 3 defenders on easy, with a coach box that says what to do next.
+  function startPractice() {
+    delete $('modal').dataset.lock; closeModal();
+    leaveOnline(); ui.preview = false;
+    startFrom(C.createGame({ seed: 7, partySize: 3, difficulty: 'easy' }));
+    ui.coach = true;
+    render();
+  }
+  function renderCoach() {
+    const box = $('coach'), s = game;
+    if (!box) return;
+    const p = s && s.party[s.active];
+    if (!ui.coach || !s || s.over || online || !p) { box.hidden = true; return; }
+    const q = activeQuest(), pairs = C.suitPowers(s, s.active, ui.picked).length;
+    let t;
+    if (s.actionsLeft <= 0) t = 'You are out of actions. Press <b>End turn</b>: the Shadow strikes, then the next defender goes.';
+    else if (p.loc === C.CITADEL) t = '<b>Step 1.</b> Click a mission on the board or in the Missions row, then press <b>Move to</b>. Cards of the mission\'s favoured suit count double.';
+    else if (!ui.picked.length && p.hand.length) t = '<b>Step 2.</b> Select cards in your hand. <b>Two of the same suit</b> also trigger that suit\'s power (see the rail below your hand).';
+    else if (ui.picked.length) t = '<b>Step 3.</b> ' + (pairs ? 'That pair will trigger a power. ' : '') + 'Press <b>Play cards</b> to add progress to ' + (q ? C.questDef(q.id).name : 'the mission') + '.';
+    else t = 'No cards left. Press <b>Gather supplies</b> to draw more, or <b>End turn</b>.';
+    box.innerHTML = '<span>' + t + '</span><button type="button" class="ghost" data-a="x" aria-label="Stop coaching">x</button>';
+    box.querySelector('[data-a="x"]').onclick = () => { ui.coach = false; render(); };
+    box.hidden = false;
+  }
+
   function startDaily() {
     delete $('modal').dataset.lock; closeModal();
     leaveOnline(); ui.preview = false;
@@ -1208,6 +1234,7 @@
       statsLine() + dailyRow() +
       '<div class="modal-actions">' +
       '<button type="button" class="ghost" data-a="rules">How to play</button>' +
+      '<button type="button" class="ghost" data-a="practice" title="A short easy game with a coach that tells you what to do">Practice (guided)</button>' +
       '<button type="button" class="ghost" data-a="online" title="Play with friends over the internet">Play online</button>' +
       (saved ? '<button type="button" data-a="cont">Continue game</button>' : '') +
       '<button type="button" class="primary" data-a="start">Begin</button></div>');
@@ -1217,6 +1244,7 @@
     card.querySelector('[data-a="rules"]').onclick = () => { delete $('modal').dataset.lock; openRules(openSetup); };
     card.querySelector('[data-a="online"]').onclick = () => { delete $('modal').dataset.lock; openOnlineMenu(); };
     card.querySelector('[data-a="daily"]').onclick = startDaily;
+    card.querySelector('[data-a="practice"]').onclick = startPractice;
     const cont = card.querySelector('[data-a="cont"]');
     if (cont) cont.onclick = () => { delete $('modal').dataset.lock; closeModal(); leaveOnline(); ui.preview = false; startFrom(saved); };
     card.querySelector('[data-a="start"]').onclick = () => {
@@ -1267,6 +1295,7 @@
       '<div class="set-row"><label for="setMotion">Animation</label><select id="setMotion" class="seed-input"><option value="system">Follow my device</option><option value="reduce">Reduce motion</option><option value="full">Full motion</option></select></div>' +
       '<label class="check"><input type="checkbox" id="setAuto"> Open the mission view automatically (expedition view)</label>' +
       '<h3>Text</h3>' +
+      '<div class="set-row"><label for="setCb">Colour-blind friendly colours <small>(coming soon)</small></label><input type="checkbox" id="setCb" disabled></div>' +
       '<div class="set-row"><label for="setText">Side panel text</label><select id="setText" class="seed-input"><option value="normal">Normal</option><option value="large">Large</option></select></div>' +
       '<div class="modal-actions"><button type="button" class="ghost" data-a="tour">Guided tour</button><button type="button" class="ghost" data-a="reset">Reset to defaults</button><button type="button" class="primary" data-a="done">Done</button></div>');
     const box = $('modalCard');
@@ -1642,7 +1671,7 @@
   // ---------- boot ----------
   function startFrom(g) {
     game = g;
-    ui.selectedSlot = null; ui.picked = []; ui.shownLog = 0; ui.prev = null; ui.endShown = false; ui.expKey = null; ui.undo = [];
+    ui.selectedSlot = null; ui.picked = []; ui.shownLog = 0; ui.prev = null; ui.endShown = false; ui.expKey = null; ui.undo = []; ui.coach = false;
     closeExpedition(true);
     clearChronicle();
     $('log').innerHTML = '';
@@ -1685,6 +1714,15 @@
 
   $('btnNew').onclick = openSetup;
   $('btnRules').onclick = () => openRules();
+
+  // Feedback: a placeholder until there is a form. Put the form's address in FEEDBACK_URL and the button opens it.
+  const FEEDBACK_URL = '';
+  $('btnFeedback').onclick = () => {
+    if (FEEDBACK_URL) { window.open(FEEDBACK_URL, '_blank', 'noopener'); return; }
+    openModal('<h2 id="modalTitle">Feedback</h2><p>Thanks for playing! A feedback form is coming soon. For now, please reply on the post or message you used to find the game and tell us what was fun, confusing or broken.</p>' +
+      '<div class="modal-actions"><button type="button" class="primary" data-a="ok">OK</button></div>');
+    $('modalCard').querySelector('[data-a="ok"]').onclick = closeModal;
+  };
   $('btnSettings').onclick = openSettings;
 
   if (Missions) Missions.installDefs();
@@ -1707,7 +1745,7 @@
   }
 
   // test hook
-  window.__citadel = { get game() { return game; }, render, startFrom, mw, openExpedition, closeExpedition, renderTrail, startTour, endTour, tour, startDaily, reportError, daily: { dayKey, dailySeed, readDaily, dailyStreak }, handArt, describeEvent, chronicle, clearChronicle, chron: ui.chron, settings: SET, handVariants, cardFace, undo };
+  window.__citadel = { get game() { return game; }, render, startFrom, mw, openExpedition, closeExpedition, renderTrail, startTour, endTour, tour, startDaily, reportError, daily: { dayKey, dailySeed, readDaily, dailyStreak }, handArt, describeEvent, chronicle, clearChronicle, chron: ui.chron, settings: SET, handVariants, cardFace, undo, startPractice };
   if (/selftest/.test(location.hash)) {
     const t = document.createElement('script');
     t.src = 'js/selftest.js';

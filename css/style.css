@@ -761,3 +761,7 @@ h1.has-logo { margin: 0; line-height: 0; }
 .seat { width: 3.5cqw; height: 3.5cqw; }
 .qmod { font-style: normal; font-size: .72em; padding: 0 .5em; margin-left: .3em; border-radius: 999px; border: 1px solid #c9a66b; color: #f0d79a; vertical-align: middle; }
 .qmod.rich { border-color: #6ec88a; color: #b8f0c8; }
+.coach { display: flex; gap: 8px; align-items: flex-start; padding: 8px 10px; margin-bottom: 8px; border-radius: 8px; background: #172433; border: 1px solid #5a9ad0; color: #d6e8fb; font-size: 13px; line-height: 1.35; }
+.coach[hidden] { display: none; }
+.coach span { flex: 1; }
+.coach button { padding: 0 8px; min-width: 0; }

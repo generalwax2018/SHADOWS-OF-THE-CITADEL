@@ -207,6 +207,13 @@ Things to know:
 - The host must stay in the game. If the host leaves, the game ends for everyone. There is no reconnecting after a drop.
 - Hands are visible to all players (the active defender's hand is always shown).
 
+### Practice, Undo and more
+- **Practice (guided)** on the setup screen starts a short easy 3-defender game with a coach box that says what to do next.
+- **Undo** (offline only, key **U**) takes back your last action this turn. It is not available after End turn, for accusations, or online.
+- **Mission modifiers:** a mission can be **Blessed** (pairs add progress) or **Rich** (needs 2 more, everyone draws 2).
+- **Shadow cards** now include Fair Omen (draw 2) and Famine (everyone discards one).
+- **Feedback** and **colour-blind colours** are placeholders for now.
+
 ### Daily challenge
 The setup screen has a **Daily challenge**: everyone gets the same game each calendar day (5 defenders, Normal), seeded
 from the date. Your best attempt per day and your streak are kept on this device, and the end screen has **Copy result**
