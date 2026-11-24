@@ -779,7 +779,7 @@ h1.has-logo { margin: 0; line-height: 0; }
 .mini { padding: 2px 10px; font-size: 12px; margin-left: 10px; vertical-align: middle; }
 /* on a desktop screen, size the board so the whole board and the Shadow trail fit without scrolling */
 @media (min-width: 981px) {
-  .stage-wrap { max-width: calc((100vh - 285px) * 1.49); margin: 0 auto; width: 100%; min-width: 480px; }
+  .stage-wrap { max-width: calc((100vh - 110px) * 1.49); margin: 0 auto; width: 100%; min-width: 480px; }
   .layout { grid-template-columns: minmax(0, 1fr) 440px; max-width: 1480px; margin: 0 auto; }
 }
 
@@ -794,7 +794,7 @@ h1.has-logo { margin: 0; line-height: 0; }
 .missions-wrap { min-width: 0; }
 @media (min-width: 1360px) {
   .layout { display: flex; justify-content: center; align-items: flex-start; gap: 16px; max-width: none; }
-  .stage-wrap { flex: 0 1 calc((100vh - 240px) * 1.49); max-width: none; min-width: 480px; margin: 0; width: auto; }
+  .stage-wrap { flex: 1 1 0; max-width: calc((100vh - 110px) * 1.49) !important; max-width: none; min-width: 480px; margin: 0; width: auto; }
   .missions-wrap { flex: 0 0 258px; position: sticky; top: 10px; max-height: calc(100vh - 20px); overflow-y: auto; scrollbar-width: thin; }
   .missions-wrap .missions-title { margin-top: 0; }
   .missions-wrap .missions-title small { display: none; }
