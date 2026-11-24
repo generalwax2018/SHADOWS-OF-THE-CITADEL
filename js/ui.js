@@ -1912,6 +1912,18 @@
   if (window.CitadelAmbience) window.CitadelAmbience.init($('stage'));
   applySettings();
   buildStatic();
+
+  // The mission list lives in the board's centre column when the board is big enough to read it there,
+  // and moves under the board on small screens.
+  function placeMissions() {
+    const big = $('stage').clientWidth >= 700;
+    const target = big ? $('boardMissions') : document.querySelector('.missions-wrap');
+    const list = $('missions');
+    if (target && list.parentNode !== target) target.appendChild(list);
+    document.body.classList.toggle('missions-on-board', big);
+  }
+  placeMissions();
+  if (window.ResizeObserver) new ResizeObserver(placeMissions).observe($('stage')); else window.addEventListener('resize', placeMissions);
   buildWindows();
   ui.fast = /selftest/.test(location.hash);
   const seedMatch = /seed=(\d+)/.exec(location.hash);

@@ -794,7 +794,7 @@ h1.has-logo { margin: 0; line-height: 0; }
 .missions-wrap { min-width: 0; }
 @media (min-width: 1360px) {
   .layout { display: flex; justify-content: center; align-items: flex-start; gap: 16px; max-width: none; }
-  .stage-wrap { flex: 0 1 calc((100vh - 285px) * 1.49); max-width: none; min-width: 480px; margin: 0; width: auto; }
+  .stage-wrap { flex: 0 1 calc((100vh - 240px) * 1.49); max-width: none; min-width: 480px; margin: 0; width: auto; }
   .missions-wrap { flex: 0 0 258px; position: sticky; top: 10px; max-height: calc(100vh - 20px); overflow-y: auto; scrollbar-width: thin; }
   .missions-wrap .missions-title { margin-top: 0; }
   .missions-wrap .missions-title small { display: none; }
@@ -838,3 +838,29 @@ html.cb .pw.ward.on { border-color: #56B4E9; }
   .missions-wrap .mc-bottom { position: static; grid-column: 2; align-self: end; background: none; padding: 0; }
   .missions-wrap .mc-meta { margin-bottom: 3px; }
 }
+
+/* ======================= mission list on the board's centre column ======================= */
+/* Sized in cqw (percent of the board's width) so it scales with the board. The painted frames underneath are
+   covered, and the old frame buttons are switched off so nothing invisible can be selected. */
+.board-missions { display: none; }
+body.missions-on-board .board-missions { display: block; position: absolute; left: 39%; width: 22.5%; top: 23.5%; bottom: 2.5%; z-index: 2; }
+body.missions-on-board .missions-wrap { display: none; }
+body.missions-on-board .slot { display: none !important; }
+body.missions-on-board .glint.g-col { display: none; }
+body.missions-on-board #missions { display: flex !important; flex-direction: column; gap: 0.6cqw; height: 100%; margin: 0; padding: 0; overflow: visible; }
+body.missions-on-board #missions .mslot { aspect-ratio: auto; flex: 1 1 0; min-height: 0; max-height: none; }
+body.missions-on-board #missions .mc { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: auto auto 1fr; column-gap: 0.9cqw;
+  padding: 0 0.9cqw 0.5cqw 0; transform: none !important; scale: none !important; border-width: 1px; border-radius: 0.8cqw;
+  background: rgba(12,9,6,.9); box-shadow: 0 0.4cqw 1.2cqw rgba(0,0,0,.7); }
+body.missions-on-board #missions .mc:hover { border-color: var(--gold); background: rgba(26,20,13,.95); }
+body.missions-on-board #missions .mc-art { position: relative; inset: auto; grid-row: 1 / 4; height: 100%; aspect-ratio: 2 / 3; border-right: 1px solid #3a2f22; }
+body.missions-on-board #missions .mc-shine { display: none; }
+body.missions-on-board #missions .mc-name { display: block; grid-column: 2; padding-top: 0.35cqw; font: 600 1.35cqw Georgia, serif; color: #f0e4c8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+body.missions-on-board #missions .mc-top { position: static; grid-column: 2; display: flex; gap: 0.4cqw; justify-content: flex-start; margin-top: 0.2cqw; }
+body.missions-on-board #missions .mc-chip { height: 1.8cqw; min-width: 1.8cqw; padding: 0 0.5cqw; font-size: 1.05cqw; gap: 0.2cqw; }
+body.missions-on-board #missions .mc-chip svg { width: 1.1cqw; height: 1.1cqw; }
+body.missions-on-board #missions .mc-bottom { position: static; grid-column: 2; align-self: end; background: none; padding: 0; }
+body.missions-on-board #missions .mc-meta { font-size: 1.05cqw; margin-bottom: 0.25cqw; }
+body.missions-on-board #missions .mc-token { width: 1.8cqw; height: 1.8cqw; margin-left: -0.5cqw; }
+body.missions-on-board #missions .mc-bar { height: 0.5cqw; }
+body.missions-on-board #missions .mc-float { font-size: 2.2cqw; }

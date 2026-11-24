@@ -216,7 +216,7 @@ Things to know:
 - Mission cards show their **Blessed** / **Rich** twist, and enlarge when you hover them in the side rail.
 
 ### Less scrolling
-On a desktop screen the board is sized to fit your window height, so the board and the Shadow trail are visible without scrolling. Defenders, Rumors and the Chronicle share one tabbed panel (a red dot on **Rumors** means a new sabotage rumor), and the mission cards sit in a rail between the board and the side panel (on screens at least 1360 pixels wide; below that they go under the board). The painted frames on the board carry no labels; click a frame or a mission card to select it.
+On a desktop screen the board is sized to fit your window height, so the board and the Shadow trail are visible without scrolling. Defenders, Rumors and the Chronicle share one tabbed panel (a red dot on **Rumors** means a new sabotage rumor), and the missions are listed on the board's centre column (on a board at least 700 pixels wide; on smaller screens the list goes under the board). Click a mission to select it.
 
 ### Practice, Undo and more
 - **Practice (guided)** on the setup screen starts a short easy 3-defender game with a coach box that says what to do next.
