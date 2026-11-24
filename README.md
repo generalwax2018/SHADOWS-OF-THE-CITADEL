@@ -208,7 +208,7 @@ Things to know:
 - Hands are visible to all players (the active defender's hand is always shown).
 
 ### Less scrolling
-On a desktop screen the board is sized to fit your window height, so the board and the Shadow trail are visible without scrolling. Defenders, Rumors and the Chronicle share one tabbed panel (a red dot on **Rumors** means a new sabotage rumor), and the big mission cards are tucked behind **Show mission cards** (the board already lists each mission).
+On a desktop screen the board is sized to fit your window height, so the board and the Shadow trail are visible without scrolling. Defenders, Rumors and the Chronicle share one tabbed panel (a red dot on **Rumors** means a new sabotage rumor), and the mission cards sit in a rail between the board and the side panel (on screens at least 1360 pixels wide; below that they go under the board). The painted frames on the board carry no labels; click a frame or a mission card to select it.
 
 ### Practice, Undo and more
 - **Practice (guided)** on the setup screen starts a short easy 3-defender game with a coach box that says what to do next.
