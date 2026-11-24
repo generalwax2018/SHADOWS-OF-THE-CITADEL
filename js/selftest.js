@@ -49,10 +49,18 @@
     { const act0 = document.getElementById('actions'); const n0 = g.party[g.active].hand.length, ac0 = g.actionsLeft;
       const ub = btnByText(act0, /^Undo/);
       check('Undo is offered and starts disabled', !!ub && ub.disabled);
-      click(btnByText(act0, /^Gather/));
-      check('gathering changes the hand and enables Undo', g.party[g.active].hand.length >= n0 && g.actionsLeft === ac0 - 1 && !btnByText(document.getElementById('actions'), /^Undo/).disabled);
+      // a move reveals nothing, so it can be undone
+      const loc0 = g.party[g.active].loc, slot0 = g.quests.findIndex(Boolean);
+      click(document.querySelectorAll('.slot')[slot0]);
+      const goU = btnByText($('modalCard'), /Move here/); if (goU) click(goU);
+      check('moving enables Undo', g.party[g.active].loc === slot0 && !btnByText(document.getElementById('actions'), /^Undo/).disabled);
       click(btnByText(document.getElementById('actions'), /^Undo/));
-      check('Undo takes the action back', g.party[g.active].hand.length === n0 && g.actionsLeft === ac0 && btnByText(document.getElementById('actions'), /^Undo/).disabled); }    check('hand shows cards', document.querySelectorAll('#hand .card').length === g.party[g.active].hand.length);
+      check('Undo takes the action back', g.party[g.active].loc === loc0 && g.actionsLeft === ac0 && btnByText(document.getElementById('actions'), /^Undo/).disabled);
+      // gathering reveals new cards: undoing it would let you peek at the deck, so it ends the undo history
+      click(btnByText(document.getElementById('actions'), /^Gather/));
+      check('gathering draws cards and cannot be undone', g.party[g.active].hand.length >= n0 && g.actionsLeft === ac0 - 1 && btnByText(document.getElementById('actions'), /^Undo/).disabled,
+        document.getElementById('msg').textContent);
+      g.actionsLeft = ac0; H.render(); }    check('hand shows cards', document.querySelectorAll('#hand .card').length === g.party[g.active].hand.length);
     check('wheel has 12 seats', $('wheel').children.length === 12);
     check('siege row has 12 dots', $('siegeRow').children.length === 12);
     check('weather canvas present', !!$('weatherCanvas'));
@@ -96,6 +104,20 @@
       hc.forEach((c, i) => { if (i < 4) click(document.querySelectorAll('#hand .card')[i]); });
       check('cannot select more than 3 cards', document.querySelectorAll('#hand .card.selected').length <= 3);
     }
+
+    // over the hand limit: choose what to discard
+    { const gg = H.game, p = gg.party[gg.active], saved = p.hand.slice();
+      document.querySelectorAll('#hand .card.selected').forEach(c => click(c));
+      p.hand = []; for (let i = 0; i < 10; i++) p.hand.push({ id: 7700 + i, suit: C.SUITS[i % 4] }); H.render();
+      const dBtn = () => btnByText($('actions'), /^Discard/);
+      check('over the limit, a Discard button and a note appear', !!dBtn() && dBtn().disabled && !!document.querySelector('#hand .limit-note'));
+      check('End turn says how many cards will go', /discards 3/.test(btnByText($('actions'), /^End turn/).textContent));
+      [0, 1, 2].forEach(i => click(document.querySelectorAll('#hand .card')[i]));
+      check('up to the excess can be selected for discarding', document.querySelectorAll('#hand .card.selected').length === 3 && !dBtn().disabled);
+      click(dBtn());
+      check('Discard lets the chosen cards go', p.hand.length === C.HAND_LIMIT && !p.hand.some(c => c.id < 7703) && !dBtn());
+      p.hand = saved; H.render(); }
+    check('the Feedback button stays hidden until a form is set', $('btnFeedback').hidden);
 
     // sound toggle
     const sb = $('btnSound');

@@ -141,14 +141,17 @@ try {
       if ($GuestTraitor -and -not $script:sabotaged) {
         $hasBtn = Js $B "T.hasBtn(/^Sabotage/)"
         Check "the human Traitor gets a Sabotage button" ($hasBtn -eq $true)
-        $before = Js $A "window.__citadel.game.rumors.length"
+        $script:rumorsBefore = Js $A "window.__citadel.game.rumors.length"
+        $logBefore = Js $A "window.__citadel.game.log.length"
         [void](Js $B "T.click(/^Sabotage/); true")
-        $after = Js $A "T.wait(() => window.__citadel.game.rumors.length > $before, 8000, 'rumor after sabotage')"
-        Check "sabotage creates a rumor on the host" ($after -eq $true)
-        $logHasName = Js $A "window.__citadel.game.log.some(l => /Gwen/.test(l.text))"
-        Check "the public log does not name the saboteur" ($logHasName -eq $false)
-        $rum = Js $B "document.querySelector('#rumors').innerText"
-        Check "the guest sees the rumor list too" ($rum -match 'Witness|#1')
+        $picked = Js $B "T.wait(() => document.querySelector('#modalCard [data-t]'), 5000, 'plot targets') && (document.querySelector('#modalCard [data-t]').click(), true)"
+        Check "the Traitor picks a target for the plot" ($picked -eq $true)
+        $laid = Js $B "T.wait(() => window.__citadel.game.plot, 8000, 'plot laid')"
+        Check "the plot reaches the host and back to the Traitor" ($laid -ne $null -and $laid -ne $false)
+        $hostLog = Js $A "window.__citadel.game.log.length"
+        Check "laying a plot puts nothing in the public log" ($hostLog -eq $logBefore)
+        $btnNow = Js $B "[...document.querySelectorAll('#actions button')].find(b => /^Sabotage/.test(b.textContent)).disabled"
+        Check "one plot at a time: the button waits" ($btnNow -eq $true)
         $script:sabotaged = $true
       }
       if (-not $guestActed) {
@@ -165,6 +168,12 @@ try {
   }
   $sa = Js $A "T.state()"
   Check "the game reached an ending" ($sa.over -eq $true)
+  if ($script:sabotaged) {
+    $sprang = Js $A "window.__citadel.game.rumors.length > $($script:rumorsBefore) || window.__citadel.game.traitorRevealed || !window.__citadel.game.party[1].alive"
+    Check "the plot sprang later and produced a rumor (or the Traitor was stopped first)" ($sprang -eq $true)
+    $logHasName = Js $A "window.__citadel.game.log.some(l => /Gwen/.test(l.text) && /Sabotage/.test(l.text))"
+    Check "the public log does not name the saboteur" ($logHasName -eq $false)
+  }
   Check "the host's gather action worked" ($hostActed)
   Check "an out-of-turn lock check ran" ($outOfTurnChecked)
 

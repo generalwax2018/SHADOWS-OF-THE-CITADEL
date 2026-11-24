@@ -207,6 +207,62 @@ async function connect(host, name) {
     eq(h3.seats[inv2.seat].kind, 'bot', 'cancelling restores the bot');
     guest.close(); h3.close();
   });
+
+  await test('a human Traitor\'s plot is private: no one else receives anything, and names cannot change mid-game', async () => {
+    const h4 = new O.Host({ size: 4, seed: 4242, botDelay: 5, lanOnly: true, name: 'Hosty' });
+    const a = await connect(h4, 'Ana'), b = await connect(h4, 'Bo');
+    await waitFor(() => h4.seats[a.seat].name === 'Ana' && h4.seats[b.seat].name === 'Bo', 3000, 'names');
+    h4.start();
+    const g = h4.game;
+    g.traitor = a.seat; g.traitorHuman = true; g.plot = null;         // make Ana the Traitor for this test
+    // a second hello must not rename anyone
+    a.guest.peer.send({ t: 'hello', name: 'Impostor' });
+    await sleep(150);
+    eq(h4.seats[a.seat].name, 'Ana', 'a second hello is ignored');
+    // walk to Ana's turn
+    const t0 = Date.now();
+    while (g.active !== a.seat && !g.over && Date.now() - t0 < 20000) { if (g.active === 0) h4.act('endTurn', []); else if (g.active === b.seat) b.guest.act('endTurn', []); await sleep(20); }
+    if (g.over) return;
+    await waitFor(() => a.guest.view && a.guest.view.active === a.seat, 5000, 'Ana sees her turn');
+    let bMsgs = 0, hostStates = 0, result = null;
+    b.guest.on('state', () => { bMsgs++; });
+    h4.on('state', () => { hostStates++; });
+    a.guest.on('result', m => { if (m.name === 'sabotageAction') result = m; });
+    const logLen = g.log.length, actions = g.actionsLeft;
+    a.guest.act('sabotageAction', [C.CITADEL]);
+    await waitFor(() => result, 3000, 'plot result');
+    ok(result.ok, 'plot accepted: ' + result.msg);
+    await waitFor(() => a.guest.view.plot, 3000, 'the Traitor sees the plot');
+    await sleep(200);
+    eq(bMsgs, 0, 'the other guest received nothing');
+    eq(hostStates, 0, 'the host UI was not told either');
+    eq(g.log.length, logLen, 'nothing public was logged');
+    eq(g.actionsLeft, actions, 'no action spent');
+    ok(b.guest.view.plot === undefined, 'the other guest\'s view has no plot');
+    // dropping the Traitor hands their part to a bot
+    a.guest.close();
+    await waitFor(() => h4.seats[a.seat].kind === 'bot', 15000, 'drop');
+    eq(g.traitorHuman, false, 'a bot now plays the Traitor');
+    b.guest.close(); h4.close();
+  });
+
+  await test('a host can resume a saved game; friends\' seats wait for them as dropped bots', async () => {
+    const h5 = new O.Host({ size: 3, seed: 99, botDelay: 5, lanOnly: true, name: 'Hosty' });
+    const c = await connect(h5, 'Cass');
+    h5.start();
+    const snap = JSON.parse(JSON.stringify(h5.snapshot()));
+    ok(snap && snap.game && snap.seats.length === 3, 'snapshot taken');
+    eq(snap.seats[c.seat].kind, 'human', 'the friend is remembered');
+    c.guest.close(); h5.close();
+    const h6 = new O.Host({ size: snap.size, difficulty: snap.difficulty, botDelay: 5, lanOnly: true, name: 'Hosty' });
+    h6.resume(snap.game, snap.seats);
+    ok(h6.game && h6.game.turn === snap.game.turn, 'the same game carries on');
+    eq(h6.seats[c.seat].kind, 'bot', 'a bot holds the seat');
+    ok(h6.seats[c.seat].dropped && /Cass/.test(h6.seats[c.seat].name), 'marked as waiting for Cass');
+    eq(h6.openSeat(), c.seat, 'and it is offered first on Invite / rejoin');
+    eq(h6.game.traitorHuman, h6.game.traitor === 0, 'only the host can be a human Traitor until friends rejoin');
+    h6.close();
+  });
   host.close();
   document.title = `${passed} passed, ${failed} failed`;
   out.insertAdjacentHTML('beforeend', `<h2 id="summary">${passed} passed, ${failed} failed</h2>`);

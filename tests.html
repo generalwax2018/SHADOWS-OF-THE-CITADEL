@@ -282,16 +282,28 @@ test('redact reveals seed once the game is over', () => {
   const s = fresh(42, 5); s.over = { win: false, reason: 'x' };
   eq(C.redact(s, 0).seed, s.seed);
 });
-test('sabotageAction: only the Traitor, costs an action, produces a rumor; human Traitor never auto-sabotages', () => {
+test('sabotageAction: only the Traitor; lays a hidden plot that costs nothing and springs on a later turn', () => {
   const s = fresh(43, 5);
-  s.traitorHuman = true; s.rumors = []; s.sabotages = 0;
+  s.traitorHuman = true; s.rumors = []; s.sabotages = 0; s.plot = null;
+  s.shadowDeck = s.shadowDeck.filter(x => x !== 'hand');          // only the plot may sabotage in this test
   const other = (s.traitor + 1) % 5;
   s.active = other; s.actionsLeft = 2;
-  ok(!C.sabotageAction(s).ok, 'non-traitor refused');
+  ok(!C.sabotageAction(s, -1).ok, 'non-traitor refused');
   s.active = s.traitor; s.actionsLeft = 2;
-  const r = C.sabotageAction(s);
-  ok(r.ok); eq(s.actionsLeft, 1); eq(s.rumors.length, 1);
-  ok(s.rumors[0].includes(s.traitor), 'rumor includes traitor');
+  const logLen = s.log.length;
+  const r = C.sabotageAction(s, -1);
+  ok(r.ok, r.msg); eq(s.actionsLeft, 2, 'no action spent'); eq(s.rumors.length, 0, 'nothing happens yet');
+  eq(s.log.length, logLen, 'nothing reaches the public log');
+  ok(!C.sabotageAction(s, -1).ok, 'one plot at a time');
+  { const t = fresh(44, 5); t.active = t.traitor; t.plot = null; ok(!C.sabotageAction(t, 99).ok, 'a target that is not a mission or the gates is refused'); }
+  eq(C.redact(s, other).plot, undefined, 'other players cannot see the plot');
+  ok(C.redact(s, s.traitor).plot, 'the Traitor sees their own plot');
+  const siege0 = s.siege, n = C.livingIdx(s).length;
+  let turns = 0;
+  while (s.plot && turns <= n + 1 && !s.over) { C.endTurn(s); turns++; }
+  ok(!s.plot || s.over, 'the plot sprang');
+  ok(turns >= 1 && turns <= n, `it sprang 1..${n} turns later (took ${turns})`);
+  if (!s.over) { eq(s.rumors.length, 1, 'one rumor'); ok(s.rumors[0].includes(s.traitor), 'rumor includes traitor'); ok(s.siege >= siege0, 'the gates target let in an engine'); }
   // human traitor never auto-sabotages at end of turn
   for (let seed = 1; seed <= 30; seed++) {
     const g = fresh(1000 + seed, 4); g.traitorHuman = true; g.rumors = []; g.sabotages = 0;
@@ -376,6 +388,71 @@ test('statistics do not change the game: same seed, same opening', () => {
   const a = C.createGame({ seed: 777, partySize: 5 }), b = C.createGame({ seed: 777, partySize: 5 });
   eq(JSON.stringify(a), JSON.stringify(b));
   eq(a.shadowDeck.join(), b.shadowDeck.join());
+});
+test('a bot Traitor never sabotages at the end of its own turn: plots spring later, on any turn', () => {
+  let springs = 0, onOthers = 0;
+  for (let seed = 1; seed <= 60; seed++) {
+    const s = C.createGame({ seed, partySize: 5 });
+    s.shadowDeck = s.shadowDeck.filter(x => x !== 'hand');
+    for (let k = 0; k < 40 && !s.over; k++) {
+      const wasTraitor = s.active === s.traitor, before = s.sabotages, L = s.log.length;
+      C.endTurn(s);
+      if (wasTraitor) {
+        const seg = s.log.slice(L), h = seg.findIndex(l => /^-- Turn/.test(l.text));
+        ok(!(h < 0 ? seg : seg.slice(0, h)).some(l => /^Sabotage/.test(l.text)), `seed ${seed}: no sabotage before the next turn begins`);
+      }
+      if (s.sabotages > before) { springs++; if (s.active !== s.traitor) onOthers++; }
+    }
+  }
+  ok(springs > 10, 'plots do spring (' + springs + ')');
+  ok(onOthers > springs / 2, `most plots spring on someone else's turn (${onOthers}/${springs})`);
+});
+test('rumors never name every living defender (3 defenders on Normal)', () => {
+  for (let seed = 1; seed <= 40; seed++) {
+    const s = C.createGame({ seed, partySize: 3, difficulty: 'normal' });
+    eq(C.rumorSize(s), 2, 'a 3-defender rumor names 2');
+    for (let k = 0; k < 30 && !s.over; k++) C.endTurn(s);
+    s.rumors.forEach(r => { ok(r.length < 3, 'seed ' + seed + ': rumor names ' + r.length); ok(r.includes(s.traitor), 'traitor named'); });
+  }
+  const h = C.createGame({ seed: 5, partySize: 6, difficulty: 'hard' }); eq(C.rumorSize(h), 2, 'Hard names 2');
+  const e = C.createGame({ seed: 5, partySize: 6, difficulty: 'easy' }); eq(C.rumorSize(e), 3, 'Easy names 3');
+});
+test('a Traitor who falls is unmasked and seats no black sword', () => {
+  // Make the wound on the next Shadow draw land on `victim`: the defender before them ends their turn.
+  const woundNext = (s, victim) => {
+    s.ward = 0; s.quests.forEach(q => { if (q) q.timer = 50; });         // no deadline can seat a sword meanwhile
+    s.party.forEach(p => { p.alive = true; p.exiled = false; p.stunned = false; });
+    s.party[victim].hp = 1;
+    s.active = (victim + s.party.length - 1) % s.party.length; s.actionsLeft = 2;
+    s.shadowDeck.push('wound');
+    const b = C.count(s, 'black'); C.endTurn(s); return b;
+  };
+  const s = fresh(91, 5); s.plot = { at: s.turn + 3, target: null };
+  const b = woundNext(s, s.traitor);
+  ok(!s.party[s.traitor].alive, 'the Traitor fell'); ok(s.traitorRevealed, 'and is unmasked');
+  eq(C.count(s, 'black'), b, 'no black sword for a fallen Traitor'); eq(s.plot, null, 'their plot dies with them');
+  const g = fresh(92, 5), inn = (g.traitor + 1) % 5;
+  const gb = woundNext(g, inn);
+  ok(!g.party[inn].alive, 'the innocent fell'); ok(C.count(g, 'black') >= gb + 1, 'an innocent falling seats a black sword');
+  ok(g.log.some(l => /has fallen! A black sword is seated/.test(l.text)), 'and the log says so');
+});
+test('discard: choose cards over the hand limit, free, only down to the limit; the rest go at end of turn', () => {
+  const s = fresh(93, 5);
+  const p = s.party[s.active]; p.id = 'shield';
+  p.hand = []; for (let i = 0; i < 10; i++) p.hand.push({ id: 600 + i, suit: C.SUITS[i % 4] });
+  ok(!C.discard(s, [600, 601, 602, 603]).ok, 'cannot discard below the limit');
+  ok(!C.discard(s, [9999]).ok, 'unknown card refused');
+  const left = s.actionsLeft;
+  ok(C.discard(s, [609, 608]).ok, 'discard two by choice');
+  eq(s.actionsLeft, left, 'costs no action');
+  ok(!p.hand.some(c => c.id === 609 || c.id === 608), 'the chosen cards are gone');
+  eq(p.hand.length, 8);
+  C.drawAction(s);
+  ok(p.hand.length > C.HAND_LIMIT, 'a hand may run over the limit during your turn');
+  C.endTurn(s);
+  eq(p.hand.length, C.HAND_LIMIT, 'trimmed at the end of the turn');
+  const t = fresh(94, 5); t.party[t.active].hand.splice(C.HAND_LIMIT);
+  ok(!C.discard(t, [t.party[t.active].hand[0].id]).ok, 'nothing to discard within the limit');
 });
 test('mage sees next shadow card, others do not', () => {
   const s = C.createGame({ seed: 5, partySize: 7 });

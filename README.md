@@ -80,7 +80,8 @@ You lose if any of these happen:
 2. **Heroic.** The active defender takes **2 actions** (3 for the Cavalry Captain):
    - **Move** to a quest or back to the Citadel
    - **Play cards** on a quest (up to 3). A card matching the quest's favoured suit is worth 2, any other card 1
-   - **Gather supplies**: draw 2 cards (hand limit 7)
+   - **Gather supplies**: draw 2 cards. You may hold more than 7 during your turn; at its end, **Discard** the cards
+     you choose (free), or the oldest go
    - **Rest** at the Citadel: everyone there heals 1
    - **Give a card** to a defender standing in the same place
    - **Accuse** a defender (needs at least one sabotage rumor)
@@ -149,6 +150,13 @@ One defender secretly serves the enemy. They sabotage quests and open the gates,
 a short list of defenders seen nearby. **The Traitor is always on the list.** Compare rumors to narrow the field, then accuse.
 - **Right:** the Traitor is exiled, a white sword is seated, and the sabotage stops.
 - **Wrong:** the accused loses their next turn and a black sword is seated.
+- A Traitor who **falls in battle** is unmasked and seats no black sword.
+
+A sabotage is a **plot** that springs at the start of a later turn (within one trip round the table), often on
+someone else's turn, so *when* it happened proves nothing. It strikes a mission with progress (up to 2 progress lost)
+or lets a siege engine in, never "where the Traitor stands". The rumors are the evidence. A rumor always names fewer
+defenders than are still standing (3 on Easy and Normal, 2 on Hard, fewer in a small party), so even a 3-defender
+game can be solved.
 
 ### Defenders
 | Defender | Ability |
@@ -161,11 +169,12 @@ a short list of defenders seen nearby. **The Traitor is always on the list.** Co
 | Cavalry Captain | takes 3 actions each turn |
 | Shield-Bearer | 4 health instead of 3 |
 
-Choose 3 to 7 defenders and Easy, Normal or Hard when starting. Quest costs scale with party size, so every size
-plays at a similar difficulty. Your game autosaves in the browser, and your win/loss record is kept per difficulty.
+Choose 3 to 7 defenders and Easy, Normal or Hard when starting. Quest costs are fitted per difficulty and party size
+(see [Tests](#tests)), so every size plays at the same difficulty. Your game autosaves in the browser, and your
+win/loss record is kept per difficulty.
 
 ### Keys
-`1`-`7` select a card, `P` or `Enter` play, `G` gather, `R` rest, `H` hint, `E` end turn.
+`1`-`9` select a card, `P` or `Enter` play, `G` gather, `R` rest, `H` hint, `U` undo, `E` end turn.
 
 ### Card draws and the path of destruction
 Cards fly out of their decks: the Shadow card flies from the Shadow deck and flips open, and supplies fly from the Gather button into your hand. Below the board, the **Path of destruction** lists every Shadow card drawn so far (and every lost quest) as a trail of glowing chips that ends at the Citadel, so the whole table can see how the ruin is spreading. Reduced motion turns the flights off.
@@ -197,14 +206,19 @@ is replaced by a bot.
 
 There is no game server: the codes carry a WebRTC handshake and the game then runs directly between the browsers.
 The host's browser runs the rules and checks every move, and each player is sent only their own view, so the Traitor's
-identity and the decks are never sent to anyone else. If the Traitor is a person, they get a **Sabotage** action and
-choose when to strike; if it is a bot, it sabotages on its own.
+identity and the decks are never sent to anyone else. If the Traitor is a person, they press **Sabotage** and pick a
+target (a mission or the gates). Laying the plot is free, nothing is logged, and no other player's browser receives
+any message at all; the plot springs a few turns later. If it is a bot, it plots on its own. If the human Traitor
+drops out, the bot that takes their seat carries on plotting.
 
 Things to know:
 - **Privacy:** players' browsers can see each other's IP address (that is how peer-to-peer works). Unless you tick
   **Same network only**, the handshake also asks a public STUN server (`stun.l.google.com`) for your public address.
 - Some strict networks (corporate firewalls, some mobile carriers) block peer-to-peer connections; there is no relay server.
-- The host must stay in the game. If the host leaves, the game ends for everyone. There is no reconnecting after a drop.
+- If the host closes the page, the game pauses for everyone. The host's browser keeps the running game: on the start
+  screen, **Resume hosted game** carries on where it stopped, with bots holding the seats until friends come back
+  through **Invite / rejoin**. (The host's browser holds the whole game, Traitor included, so a host who opens the
+  browser's developer tools could peek. Play with people you trust, or let someone neutral host.)
 - Hands are visible to all players (the active defender's hand is always shown).
 
 ### Campaign, achievements and replay
@@ -220,10 +234,12 @@ On a desktop screen the board is sized to fit your window height, so the board a
 
 ### Practice, Undo and more
 - **Practice (guided)** on the setup screen starts a short easy 3-defender game with a coach box that says what to do next.
-- **Undo** (offline only, key **U**) takes back your last action this turn. It is not available after End turn, for accusations, or online.
+- **Undo** (offline only, key **U**) takes back your last action this turn. It is not available after End turn, for
+  accusations, online, or for anything that revealed new cards (gathering, a completed mission), since that would let
+  you peek at the deck and choose again.
 - **Mission modifiers:** a mission can be **Blessed** (pairs add progress) or **Rich** (needs 2 more, everyone draws 2).
-- **Shadow cards** now include Fair Omen (draw 2) and Famine (everyone discards one).
-- **Feedback** is a placeholder until a form address is set in `FEEDBACK_URL` (`js/ui.js`).
+- **Shadow cards** now include Fair Omen (draw 2) and Famine (everyone discards a random card).
+- **Feedback** appears in the top bar once a form address is set in `FEEDBACK_URL` (`js/ui.js`); until then it is hidden.
 
 ### Daily challenge
 The setup screen has a **Daily challenge**: everyone gets the same game each calendar day (5 defenders, Normal), seeded
@@ -238,7 +254,8 @@ Settings or Rules) walks through the board in seven steps; it is offered once on
 #### Rejoining and swapping in friends
 If a friend's connection drops, a bot plays their seat. The host presses **Invite / rejoin** (top bar), picks that seat, and sends a new invite code. The friend taps **Rejoin** on their Disconnected screen and pastes it; they get their defender, their hand and their secret role back. The same button seats a new friend in place of any bot mid-game. If the *host* closes the page, the game ends for everyone.
 
-### Seeds and challenge linksEvery game has a seed. Enter one on the setup screen, or share a link like `index.html#seed=42&size=4&diff=hard`
+### Seeds and challenge links
+Every game has a seed. Enter one on the setup screen, or share a link like `index.html#seed=42&size=4&diff=hard`
 (the end screen has a **Copy challenge link** button). The same seed deals the same game, so friends can compare runs.
 
 ## Project layout
@@ -283,18 +300,22 @@ powershell -ExecutionPolicy Bypass -File tools\run-online-ui-test.ps1 -GuestTrai
 `tests.html` also opens in a normal browser. The online tests drive Edge or Chrome over the DevTools protocol because
 WebRTC needs real clocks.
 
-The balance simulation plays seeded games with a simple greedy bot, per difficulty and party size. Win rates:
+The balance simulation plays seeded games with a simple greedy bot, per difficulty and party size. Mission costs are
+fitted per difficulty and party size (`SIZE_NEED` in `js/engine.js`) so every party size aims at the same win rate:
+about 88% on Easy, 45% on Normal and 20% on Hard. Measured over 1,500 games each:
 
 | Defenders | Easy | Normal | Hard |
 |---|---|---|---|
-| 3 | 95% | 26% | 6% |
-| 4 | 80% | 35% | 15% |
-| 5 | 88% | 45% | 23% |
-| 6 | 90% | 51% | 16% |
-| 7 | 95% | 63% | 31% |
+| 3 | 88% | 45% | 21% |
+| 4 | 90% | 43% | 18% |
+| 5 | 88% | 45% | 19% |
+| 6 | 89% | 45% | 22% |
+| 7 | 88% | 45% | 18% |
 
-The bot is a simple greedy player: it never passes cards and only accuses when one defender is named in every
-rumor. A thoughtful human should do better. Tune `DIFFICULTY` and `SIZE_NEED` in `js/engine.js` and rerun `tools\run-tests.ps1`.
+(`tests.html` prints a smaller 150-game sample, so expect a few points of noise there.) Mission costs use random
+rounding, so the average cost changes smoothly as you tune. The bot is a simple greedy player: it never passes cards
+and only accuses when one defender is named in every rumor. A thoughtful human should do better. Tune `DIFFICULTY` and
+`SIZE_NEED` in `js/engine.js` and rerun `tools\run-tests.ps1`.
 
 The same suites run on every push through GitHub Actions (.github/workflows/tests.yml). The end screen shows run highlights (most progress, missions completed or failed, wounds, sabotages), and an unexpected script error shows a Reload bar instead of failing silently.
 

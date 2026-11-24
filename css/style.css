@@ -879,3 +879,56 @@ body.missions-on-board #missions .mc-bottom { position: absolute; z-index: 2; le
 body.missions-on-board #missions .mc-meta { justify-content: flex-end; gap: 0.6cqw; margin-bottom: 0.25cqw; position: absolute; right: 0.9cqw; bottom: 1.95cqw; }
 body.missions-on-board #missions .mc-prog { font-size: 1.15cqw; }
 body.missions-on-board #missions .mc-float, body.missions-on-board #missions .mc-stamp { z-index: 3; }
+
+/* ======================= release 20261124a: hand, discards, plots, modals ======================= */
+/* The hand fills its row: cards grow to the panel's width (4 to 7 per row) instead of staying thumbnail size. */
+.hand { display: grid; grid-template-columns: repeat(var(--cols, 7), minmax(0, 86px)); gap: 8px; justify-content: start; align-items: end; min-height: 0; padding-top: 10px; }
+.hand .card { width: auto; height: auto; aspect-ratio: 2 / 3; min-width: 0; font-size: 11px; }
+.hand .card.art .ico { width: 22px; height: 22px; }
+.hand .empty-note, .hand .limit-note { grid-column: 1 / -1; }
+.hand.over-limit { box-shadow: inset 0 0 0 1px rgba(224,116,116,.35); border-radius: 8px; padding: 10px 6px 6px; }
+.limit-note { margin: 2px 0 0; font-size: 12px; line-height: 1.4; color: #f0b8a8; }
+#handHint.over { color: var(--bad); font-weight: 600; }
+
+/* Discard: a warning, not a danger. */
+button.warn { border-color: #c9934a; color: #f1d3a0; background: linear-gradient(#2a1f12, #1c150d); }
+button.warn:not(:disabled):hover { border-color: #f0c070; }
+
+/* The Traitor's target picker. */
+.plot-pick { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+.plot-pick button { display: grid; justify-items: center; gap: 3px; padding: 10px 8px; }
+.plot-pick button b { font: 600 13px Georgia, serif; color: #f0e4c8; }
+.plot-pick button small { color: var(--muted); }
+.plot-pick button .suit-ico { width: 22px; height: 22px; }
+.plot-pick button:hover { border-color: #b2463a; box-shadow: 0 0 12px rgba(178,70,58,.45); }
+
+/* Dialogs never scroll sideways; long codes and rows wrap instead. */
+.modal-card { overflow-x: hidden; }
+.modal-card textarea.code { max-width: 100%; box-sizing: border-box; word-break: break-all; }
+.modal-card .daily > div { min-width: 0; flex: 1 1 200px; }
+.modal-card .daily small { display: block; margin-top: 2px; }
+
+/* The board, its title and the Path of destruction all fit in one screen height on desktop (no scrolling to see the trail). */
+@media (min-width: 981px) { .stage-wrap { max-width: calc((100vh - 210px) * 1.48) !important; } }
+
+/* Phone: a compact top bar (logo and buttons on one row, the counters under them) so the board starts near the top. */
+@media (max-width: 560px) {
+  .topbar { display: grid; grid-template-columns: auto minmax(0, 1fr); padding: 8px 10px; gap: 6px 10px; }
+  .logo-img { height: 40px; }
+  .topbtns { grid-row: 1; grid-column: 2; justify-self: end; flex-wrap: wrap; justify-content: flex-end; gap: 5px; }
+  .topbtns button { padding: 5px 8px; font-size: 12.5px; white-space: nowrap; }
+  .status { grid-column: 1 / -1; gap: 5px; font-size: 12.5px; }
+  .status .chip { padding: 2px 8px; }
+  .status .chip strong { font-size: 13.5px; }
+  .missions { grid-auto-columns: 36%; }
+  .hand { grid-template-columns: repeat(var(--cols, 7), minmax(0, 1fr)); }
+}
+
+/* Small boards (mission list under the board): the painted frames were blank. Show each mission's suit, rounds left
+   and a progress bar in its frame so the board still reads at a glance; tap a frame for the details. */
+body:not(.missions-on-board) .slot .qmeta { display: flex !important; position: absolute; left: 4%; top: 45%; transform: translateY(-70%); gap: 3px; font-size: 8.5px; line-height: 1; color: #f0e4c8; }
+body:not(.missions-on-board) .slot .qmeta > span:not(.suit-ico):not(.timer) { display: none; }
+body:not(.missions-on-board) .slot .qmeta .suit-ico { width: 10px; height: 10px; }
+body:not(.missions-on-board) .slot .qmeta .timer { font-variant-numeric: tabular-nums; text-shadow: 0 0 3px #000; }
+body:not(.missions-on-board) .slot .bar { display: block !important; left: 6%; right: 6%; bottom: 18%; height: 2.5px; }
+body:not(.missions-on-board) .slot.urgent { box-shadow: inset 0 0 0 1px var(--bad); }

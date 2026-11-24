@@ -11,8 +11,11 @@
   const C = root.Citadel, N = root.CitadelNet;
 
   const ACTIONS = {
-    move: 1, contribute: 1, drawAction: 0, rest: 0, accuse: 1, give: 2, endTurn: 0, sabotageAction: 0
+    move: 1, contribute: 1, drawAction: 0, rest: 0, accuse: 1, give: 2, endTurn: 0, sabotageAction: 1, discard: 1
   };
+  // Actions whose effect only the actor may see: everyone else gets no message at all, so not even the
+  // arrival of a state update hints that something happened.
+  const PRIVATE = { sabotageAction: true };
   const BOT_DELAY = 850;
 
   function emitter() {
@@ -26,6 +29,7 @@
   function validArgs(name, args) {
     if (!Array.isArray(args) || args.length !== ACTIONS[name]) return false;
     if (name === 'contribute') return Array.isArray(args[0]) && args[0].length <= C.MAX_CONTRIBUTE && args[0].every(Number.isInteger);
+    if (name === 'discard') return Array.isArray(args[0]) && args[0].length <= 48 && args[0].every(Number.isInteger);
     return args.every(Number.isInteger);
   }
 
@@ -104,6 +108,7 @@
       s.name = s.prev && s.prev.name ? s.prev.name.replace(/ \(bot\)$/, '') : 'Player ' + (seat + 1);
       s.prev = null; delete s.dropped;
       this.ev.emit('lobby', this.lobby());
+      if (g && seat === g.traitor) g.traitorHuman = true;      // a person took over the Traitor's seat: they choose when to strike
       if (g) {                                   // joining a running game: give them the game, then everyone the new names
         s.peer.send({ t: 'start', you: seat, names: this.names(), view: C.redact(g, seat) });
         this.ev.emit('rejoined', seat, s.name);
@@ -122,6 +127,7 @@
       this.seats[seat] = was === 'pending' && s.prev ? s.prev
         : { kind: 'bot', name: (was === 'human' ? s.name + ' (bot)' : 'Bot ' + seat), peer: null, dropped: was === 'human' };
       if (was === 'human') {
+        if (this.game && seat === this.game.traitor) this.game.traitorHuman = false;   // the bot now plays the Traitor's part
         this.ev.emit('left', seat, s.name);
         if (this.game) { this.broadcast(); this.runBots(); } else this._sendLobby();
       }
@@ -130,14 +136,41 @@
 
     _message(seat, m) {
       if (m.t === 'hello') {
-        this.seats[seat].name = cleanName(m.name, 'Player ' + (seat + 1));
+        const st = this.seats[seat];
+        if (!st || st.named) return;                // one name per connection: no renaming (or broadcast spam) mid-game
+        st.named = true;
+        st.name = cleanName(m.name, 'Player ' + (seat + 1));
         this.ev.emit('lobby', this.lobby());
         if (this.game) this.broadcast(); else this._sendLobby();
       } else if (m.t === 'act') {
         const r = this._apply(seat, m.name, m.args);
         const s = this.seats[seat];
-        if (s && s.peer) s.peer.send({ t: 'result', ok: !!r.ok, msg: r.msg || '' });
+        if (s && s.peer) s.peer.send({ t: 'result', ok: !!r.ok, msg: r.msg || '', name: String(m.name || '') });
       }
+    }
+
+    // Carry on a hosted game after the host's page was closed or reloaded. Every friend comes back through
+    // Invite / rejoin; until then a bot plays their seat (and, if it was the Traitor's seat, the Traitor's part).
+    resume(game, saved) {
+      if (this.game) return this.game;
+      saved = saved || [];
+      this.game = game;
+      for (let i = 1; i < this.size; i++) {
+        const was = saved[i] || {};
+        const human = was.kind === 'human';
+        const nm = String(was.name || ('Bot ' + i)).replace(/ \(bot\)$/, '');
+        this.seats[i] = { kind: 'bot', name: human ? cleanName(nm, 'Player ' + (i + 1)) + ' (bot)' : 'Bot ' + i, peer: null, dropped: human };
+      }
+      game.traitorHuman = game.traitor === 0;
+      this.ev.emit('start', game);
+      this.ev.emit('state', game);
+      this.runBots();
+      return game;
+    }
+    // What a host needs to save so the game can be resumed later.
+    snapshot() {
+      return this.game ? { v: 1, size: this.size, difficulty: this.difficulty, lanOnly: this.lanOnly, game: this.game,
+        seats: this.seats.map(s => ({ kind: s.kind === 'pending' ? (s.prev && s.prev.dropped ? 'human' : 'bot') : (s.dropped ? 'human' : s.kind), name: s.name })) } : null;
     }
 
     humans() { return this.seats.filter(s => s.kind === 'human').length + 1; }
@@ -167,8 +200,19 @@
       if (g.active !== seat) return { ok: false, msg: 'It is not your turn.' };
       let r;
       try { r = C[name](g, ...args); } catch (e) { r = { ok: false, msg: 'That did not work.' }; }
-      if (r && r.ok) this.broadcast();
+      if (r && r.ok) {
+        if (PRIVATE[name]) this._sendTo(seat);
+        else this.broadcast();
+      }
       return r || { ok: false, msg: 'That did not work.' };
+    }
+
+    // Send one player their view without telling anyone else that anything changed.
+    _sendTo(seat) {
+      const g = this.game, s = this.seats[seat];
+      if (!g) return;
+      if (seat === 0) this.ev.emit('state', g);
+      else if (s && s.kind === 'human' && s.peer) s.peer.send({ t: 'state', names: this.names(), view: C.redact(g, seat) });
     }
 
     broadcast() {

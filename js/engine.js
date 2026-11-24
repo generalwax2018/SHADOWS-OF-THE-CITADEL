@@ -70,8 +70,13 @@
   };
 
   // A round has one turn per defender, so a bigger party does more work (and meets more Shadow
-  // cards) before each deadline. This keeps 3 to 7 defenders comparably difficult.
-  const SIZE_NEED = { 3: 0.74, 4: 0.88, 5: 1, 6: 1.17, 7: 1.27 };
+  // cards) before each deadline. These multipliers on needScale keep 3 to 7 defenders comparably difficult.
+  // They are fitted per difficulty by bot simulation (tests.html prints the resulting win rates).
+  const SIZE_NEED = {
+    easy:   { 3: 0.52, 4: 0.52, 5: 0.79, 6: 1.18, 7: 1.47 },    // bot wins about 88%
+    normal: { 3: 0.62, 4: 0.77, 5: 0.98, 6: 1.15, 7: 1.29 },    // about 45%
+    hard:   { 3: 0.63, 4: 0.85, 5: 1.01, 6: 1.14, 7: 1.29 }     // about 20%
+  };
 
   // ---------- randomness ----------
   function rand(s) {                       // mulberry32, state kept in s.rng
@@ -117,7 +122,7 @@
       siege: 0,
       party: [], whiteDeck: [], whiteDiscard: [], shadowDeck: [], shadowDiscard: [],
       quests: new Array(SLOTS).fill(null), questPool: [],
-      traitor: -1, traitorRevealed: false, rumors: [], sabotages: 0,
+      traitor: -1, traitorRevealed: false, rumors: [], sabotages: 0, plot: null,
       lastShadow: null, log: [], trail: [], ward: 0
     };
 
@@ -156,9 +161,13 @@
     const id = s.questPool.pop();
     if (!id) { s.quests[slot] = null; return; }
     const def = questDef(id);
-    const scale = DIFFICULTY[s.difficulty].needScale * (SIZE_NEED[s.party.length] || 1);
+    const sizes = SIZE_NEED[s.difficulty] || {};
+    const scale = DIFFICULTY[s.difficulty].needScale * (sizes[s.party.length] || 1);
     const r = rand(s), mod = r < 0.2 ? 'blessed' : r < 0.36 ? 'rich' : null;    // mission modifiers
-    s.quests[slot] = { id, progress: 0, needed: Math.max(3, Math.round(def.needed * scale)) + (mod === 'rich' ? 2 : 0), timer: Math.max(3, def.timer + bonus) };
+    // Random rounding keeps the average cost exactly def.needed * scale, so difficulty tuning is smooth
+    // instead of jumping a whole point of progress on every mission at once.
+    const need = Math.max(3, Math.floor(def.needed * scale + rand(s)));
+    s.quests[slot] = { id, progress: 0, needed: need + (mod === 'rich' ? 2 : 0), timer: Math.max(3, def.timer + bonus) };
     if (mod) s.quests[slot].mod = mod;
   }
 
@@ -239,49 +248,71 @@
     const nm = defenderDef(p.id).name;
     if (p.hp <= 0) {
       p.hp = 0; p.alive = false;
-      say(s, `${nm} has fallen! A black sword is seated.`, 'lose');
       s.whiteDiscard.push(...p.hand.splice(0));
       if (idx === s.traitor && !s.traitorRevealed) {
+        // The Citadel does not mourn a traitor: no black sword, and their plots die with them.
         s.traitorRevealed = true;
-        say(s, `${nm} was the Traitor.`, '');
+        s.plot = null;
+        say(s, `${nm} has fallen! ${nm} was the Traitor, so no black sword is seated.`, 'win');
+        checkEnd(s);
+      } else {
+        say(s, `${nm} has fallen! A black sword is seated.`, 'lose');
+        addSword(s, 'black');
       }
-      addSword(s, 'black');
     } else {
       say(s, `${nm} is wounded (${p.hp}/${p.maxHp}).`, 'lose');
     }
   }
 
   // ---------- the traitor ----------
-  function sabotage(s) {
+  // How many defenders a rumor names. Always fewer than the living, so a rumor can never name everyone
+  // (with 3 defenders a 3-name rumor would carry no information at all).
+  function rumorSize(s) {
+    const base = s.difficulty === 'hard' ? 2 : 3;
+    return Math.max(1, Math.min(base, livingIdx(s).length - 1));
+  }
+
+  // A sabotage never strikes where the Traitor stands (that would point straight at them). It hits the
+  // chosen mission if it still has progress, otherwise a random mission with progress, otherwise the siege.
+  function sabotage(s, target) {
     if (s.traitorRevealed) return;
     const t = s.party[s.traitor];
     if (!t || !t.alive || t.exiled) return;
     s.sabotages++;
-    const q = t.loc >= 0 ? s.quests[t.loc] : null;
-    if (q && q.progress > 0) {
-      q.progress = Math.max(0, q.progress - 2);
-      say(s, `Sabotage at ${questDef(q.id).name}! Progress is undone.`, 'lose');
-    } else if (t.loc === CITADEL || !q) {
+    let slot = Number.isInteger(target) && target >= 0 && s.quests[target] && s.quests[target].progress > 0 ? target : -1;
+    if (slot < 0 && target !== CITADEL) {
+      const worked = s.quests.map((q, i) => (q && q.progress > 0 ? i : -1)).filter(i => i >= 0);
+      if (worked.length) slot = worked[randInt(s, worked.length)];
+    }
+    if (slot >= 0) {
+      const q = s.quests[slot], lost = Math.min(2, q.progress);
+      q.progress -= lost;
+      say(s, `Sabotage at ${questDef(q.id).name}! ${lost} progress is undone.`, 'lose');
+    } else {
       addSiege(s, 1);
       say(s, 'Sabotage! Someone opened a postern to the enemy. +1 siege engine.', 'lose');
-    } else {
-      const other = s.quests.findIndex(x => x && x.progress > 0);
-      if (other >= 0) {
-        s.quests[other].progress = Math.max(0, s.quests[other].progress - 1);
-        say(s, `Sabotage! Work on ${questDef(s.quests[other].id).name} is ruined.`, 'lose');
-      } else {
-        addSiege(s, 1);
-        say(s, 'Sabotage! The enemy slips closer. +1 siege engine.', 'lose');
-      }
     }
     // Rumor: the traitor plus decoys. Intersecting rumors exposes them.
-    const size = s.difficulty === 'hard' ? 2 : 3;
     const pool = livingIdx(s).filter(i => i !== s.traitor);
     shuffle(s, pool);
-    const suspects = [s.traitor].concat(pool.slice(0, Math.max(0, size - 1)));
+    const suspects = [s.traitor].concat(pool.slice(0, rumorSize(s) - 1));
     shuffle(s, suspects);
     s.rumors.push(suspects);
     say(s, `Witnesses saw: ${suspects.map(i => defenderDef(s.party[i].id).name).join(', ')} nearby.`, '');
+  }
+
+  // The Traitor lays a plot that springs at the start of a later turn (1 to N turns away, N = defenders still
+  // standing). It is never resolved on the Traitor's own action, so the timing of a sabotage gives nothing away.
+  function layPlot(s, target) {
+    const n = Math.max(1, livingIdx(s).length);
+    s.plot = { at: s.turn + 1 + randInt(s, n), target: Number.isInteger(target) ? target : null };
+  }
+  function springPlot(s) {
+    if (!s.plot || s.over || s.turn < s.plot.at) return;
+    const target = s.plot.target;
+    s.plot = null;
+    sabotage(s, target);
+    checkEnd(s);
   }
 
   // ---------- turn flow ----------
@@ -312,7 +343,7 @@
       case 'gate':    say(s, 'Shadow: the Gate opens. A black sword is seated.', 'lose'); addSword(s, 'black'); break;
       case 'calm':    say(s, 'Shadow: a strange calm. Nothing stirs.', ''); break;
       case 'omen':
-        drawCards(s, s.active, 2); discardToLimit(s, s.active);
+        drawCards(s, s.active, 2);            // the hand limit is checked when this turn ends
         say(s, 'Shadow: a fair omen. ' + defenderDef(s.party[s.active].id).name + ' draws two cards.', 'win'); break;
       case 'eclipse': {                                  // Hard only: the furthest-along mission loses ground
         let best = -1;
@@ -324,7 +355,7 @@
         break;
       }
       case 'famine':
-        s.party.forEach(q => { if (q.alive && q.hand.length) s.whiteDiscard.push(q.hand.shift()); });
+        s.party.forEach(q => { if (q.alive && !q.exiled && q.hand.length) s.whiteDiscard.push(q.hand.splice(randInt(s, q.hand.length), 1)[0]); });
         say(s, 'Shadow: famine. Every defender discards a card.', 'lose'); break;
       case 'hand':
         if (s.traitorRevealed || !s.party[s.traitor] || !s.party[s.traitor].alive) {
@@ -377,19 +408,20 @@
     say(s, `-- Turn ${s.turn}: ${nm} --`, 'turn');
     drawShadow(s);
     if (s.over) return;
+    springPlot(s);                                               // a plot laid earlier may spring now, on anyone's turn
+    if (s.over) return;
     if (!s.party[s.active].alive) { endTurn(s, true); return; } // fell to the shadow draw
   }
 
   function endTurn(s, forced) {
     if (s.over) return { ok: false, msg: 'The game is over.' };
     const prev = s.active;
-    if (!forced) discardToLimit(s, prev);
+    if (!forced) discardToLimit(s, prev);   // anything not discarded by choice (see discard) goes oldest first
 
-    // A bot Traitor may quietly sabotage after their own turn. A human Traitor chooses when to (see sabotageAction).
-    if (!forced && !s.traitorHuman && prev === s.traitor && !s.traitorRevealed && s.party[prev].alive && rand(s) < 0.4) {
-      sabotage(s);
-      checkEnd(s);
-      if (s.over) return { ok: true };
+    // A bot Traitor may quietly lay a plot after their own turn; it springs on a later turn, not now.
+    // A human Traitor chooses when to (see sabotageAction).
+    if (!forced && !s.traitorHuman && prev === s.traitor && !s.traitorRevealed && s.party[prev].alive && !s.plot && rand(s) < 0.4) {
+      layPlot(s, null);
     }
 
     // Walk the turn order to the next defender who is alive, present and not stunned.
@@ -525,8 +557,7 @@
       s.party.forEach(q => { if (q.loc === slot) q.loc = CITADEL; });
       s.quests[slot] = null;
       dealQuest(s, slot);
-      livingIdx(s).forEach(i => drawCards(s, i, quest.mod === 'rich' ? 2 : 1));
-      s.party.forEach((_, i) => discardToLimit(s, i));
+      livingIdx(s).forEach(i => drawCards(s, i, quest.mod === 'rich' ? 2 : 1));   // each defender trims to the limit at the end of their own turn
       addSword(s, 'white');
     }
     return { ok: true, gain };
@@ -538,7 +569,22 @@
     const got = drawCards(s, s.active, n);
     spend(s, 1);
     say(s, `${defenderDef(s.party[s.active].id).name} gathers supplies (+${got} cards).`);
-    discardToLimit(s, s.active);
+    return { ok: true };
+  }
+
+  // Choose which cards to let go when over the hand limit. Free, and only down to the limit.
+  // Whatever is still over the limit when the turn ends is discarded oldest first.
+  function discard(s, cardIds) {
+    if (s.over) return fail('The game is over.');
+    const p = s.party[s.active];
+    const ids = Array.from(new Set(cardIds || []));
+    const excess = p.hand.length - HAND_LIMIT;
+    if (excess <= 0) return fail(`You are within the hand limit of ${HAND_LIMIT}.`);
+    if (ids.length === 0) return fail('Select the cards to discard.');
+    if (ids.length > excess) return fail(`Discard only ${excess} card${excess > 1 ? 's' : ''}.`);
+    if (!ids.every(id => p.hand.some(c => c.id === id))) return fail('Those cards are not in your hand.');
+    ids.forEach(id => { const k = p.hand.findIndex(c => c.id === id); s.whiteDiscard.push(p.hand.splice(k, 1)[0]); });
+    say(s, `${defenderDef(p.id).name} discards ${ids.length} card${ids.length > 1 ? 's' : ''} (hand limit ${HAND_LIMIT}).`);
     return { ok: true };
   }
 
@@ -568,6 +614,7 @@
     if (target === s.traitor) {
       t.exiled = true;
       s.traitorRevealed = true;
+      s.plot = null;                       // an unmasked Traitor's plots come to nothing
       say(s, `${nm} is the Traitor! Cast out of the Citadel. A white sword is seated.`, 'win');
       addSword(s, 'white');
     } else {
@@ -578,18 +625,22 @@
     return { ok: true, correct: target === s.traitor };
   }
 
-  // Online play with a human Traitor: they choose when to strike. Costs 1 action; nothing in the
-  // public log says who did it, only the usual rumor of who was nearby.
-  function sabotageAction(s) {
-    const bad = canAct(s); if (bad) return bad;
+  // Online play with a human Traitor: they choose when and where to strike. Laying a plot costs no action and
+  // changes nothing anyone else can see; the plot springs at the start of a later turn (possibly someone else's),
+  // so neither the timing nor an action count gives the Traitor away. One plot at a time.
+  // target: a quest slot (0..6) to set back, or CITADEL (-1) to let a siege engine in. Omit for "anywhere".
+  function sabotageAction(s, target) {
+    if (s.over) return fail('The game is over.');
     if (s.active !== s.traitor || s.traitorRevealed) return fail('Only the hidden Traitor can do that.');
-    spend(s, 1);
-    sabotage(s);
-    checkEnd(s);
-    return { ok: true };
+    if (s.plot) return fail('A plot is already laid. Wait for it to spring.');
+    if (target !== undefined && target !== null && target !== CITADEL && !(Number.isInteger(target) && target >= 0 && target < SLOTS && s.quests[target]))
+      return fail('Choose a mission or the gates.');
+    layPlot(s, target === undefined ? null : target);
+    const turns = s.plot.at - s.turn;
+    return { ok: true, msg: `The plot is laid. It springs within the next ${livingIdx(s).length} turns.`, turns };
   }
 
-  // What one player is allowed to see: decks collapse to counts, the Traitor's identity stays
+  // What one player is allowed to see: decks collapse to counts, the Traitor's identity and plots stay
   // hidden from everyone else until it is revealed, and the seed stays secret until the game ends.
   function redact(s, viewer) {
     const v = clone(s);
@@ -601,7 +652,9 @@
     v.whiteDiscard = [];
     v.rng = 0;
     if (!s.over) v.seed = 0;
+    const insider = viewer === s.traitor && !s.traitorRevealed;
     if (!s.over && !s.traitorRevealed && viewer !== s.traitor) v.traitor = -1;
+    if (!insider) delete v.plot;
     v.viewer = viewer;
     return v;
   }
@@ -693,9 +746,9 @@
 
   const api = {
     SUITS, SUIT_LABEL, MODS, POWERS, WARD_MAX, suitPowers, SEATS, WIN_WHITE, LOSE_BLACK, SIEGE_MAX, HAND_LIMIT, SLOTS, CITADEL, MAX_CONTRIBUTE,
-    DEFENDERS, QUEST_DEFS, DIFFICULTY,
-    createGame, move, contribute, contributeValue, drawAction, rest, accuse, give, endTurn, sabotageAction,
-    suggest, redact, suspicion, nextShadowPeek, questDef, defenderDef, count, livingIdx, locName, clone
+    DEFENDERS, QUEST_DEFS, DIFFICULTY, SIZE_NEED,
+    createGame, move, contribute, contributeValue, drawAction, rest, accuse, give, endTurn, sabotageAction, discard,
+    suggest, redact, suspicion, nextShadowPeek, questDef, defenderDef, count, livingIdx, locName, clone, rumorSize
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.Citadel = api;

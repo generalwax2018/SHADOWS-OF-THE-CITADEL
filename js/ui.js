@@ -420,6 +420,7 @@
     // hand
     const hand = $('hand');
     hand.innerHTML = '';
+    hand.style.setProperty('--cols', Math.max(4, Math.min(7, p.hand.length)));   // cards grow to fill the row, up to 7 per row
     ui.picked = ui.picked.filter(id => p.hand.some(c => c.id === id));
     const q = activeQuest();
     const def = q ? C.questDef(q.id) : null;
@@ -445,7 +446,11 @@
       }
     });
     if (!p.hand.length) hand.appendChild(el('div', 'empty-note', 'No cards. Gather supplies to draw more.'));
+    const overBy = p.hand.length - C.HAND_LIMIT;
     $('handHint').textContent = `${p.hand.length}/${C.HAND_LIMIT}` + (def ? ` - ${def.name} likes ${C.SUIT_LABEL[def.suit]}` : '');
+    $('handHint').classList.toggle('over', overBy > 0);
+    hand.classList.toggle('over-limit', overBy > 0);
+    if (overBy > 0 && mine()) hand.appendChild(el('div', 'limit-note', `Over the limit by ${overBy}. Select ${overBy === 1 ? 'a card' : overBy + ' cards'} and press <b>Discard</b>, or the oldest go when you end your turn.`));
 
     // suit powers: a rail that lights up for the pairs you hold, and brighter for the pairs you have selected
     const rail = $('powers');
@@ -765,7 +770,7 @@
   function toggleCard(id) {
     const i = ui.picked.indexOf(id);
     if (i >= 0) ui.picked.splice(i, 1);
-    else if (ui.picked.length < C.MAX_CONTRIBUTE) ui.picked.push(id);
+    else if (ui.picked.length < pickLimit()) ui.picked.push(id);
     else flash(`You can play at most ${C.MAX_CONTRIBUTE} cards at once.`);
     render();
   }
@@ -807,16 +812,46 @@
     btn('Give card...', openGive, { disabled: ui.picked.length !== 1 || mates.length === 0,
       title: 'Select exactly one card, then pass it to a defender standing in the same place' });
     btn('Accuse...', openAccuse, { disabled: s.rumors.length === 0 || s.traitorRevealed, title: 'Needs at least one sabotage rumor' });
-    if (online && isTraitorMe() && !s.traitorRevealed) {
-      const sab = btn('Sabotage (Traitor)', () => act(() => perform('sabotageAction')), { cls: 'danger traitor-act', title: 'Costs 1 action. Secretly strike the quest you stand at (or the Citadel). Witnesses will name you and a few others.' });
+    const plotting = online && isTraitorMe() && !s.traitorRevealed;
+    if (plotting) {
+      const sab = btn(s.plot ? 'Sabotage (plot laid)' : 'Sabotage...', openPlot, { cls: 'danger traitor-act', needAction: false, disabled: !!s.plot,
+        title: s.plot ? 'Your plot is waiting to spring.' : 'Free. Choose a target; the plot springs at the start of a later turn, possibly someone else\'s.' });
       sab.dataset.traitor = '1';
     }
-    btn('Hint', hint, { cls: 'ghost', needAction: false, title: 'Suggest a sensible next step [H]' });
-    if (!online) btn('Undo', undo, { cls: 'ghost', needAction: false, disabled: !ui.undo.length, title: 'Take back your last action this turn [U]' });
-    btn('End turn', endTurn, { cls: 'danger', needAction: false, title: 'Finish this defender\'s turn [E]' });
-    if (online && isTraitorMe() && !s.traitorRevealed) {
-      box.appendChild(el('p', 'traitor-note', '<b>Traitor:</b> Sabotage costs 1 action and strikes where you stand. Witnesses will name you and a few others, so pick your moment.'));
+    const excess = p.hand.length - C.HAND_LIMIT;
+    if (excess > 0) {
+      const n = ui.picked.length;
+      btn(n && n <= excess ? `Discard ${n} selected` : `Discard (select ${excess})`, () => act(() => { const r = perform('discard', ui.picked.slice()); ui.picked = []; return r; }),
+        { cls: 'warn', needAction: false, disabled: !n || n > excess, title: `Over the hand limit of ${C.HAND_LIMIT}: choose ${excess} card${excess > 1 ? 's' : ''} to let go (free). Otherwise the oldest go when you end your turn.` });
     }
+    btn('Hint', hint, { cls: 'ghost', needAction: false, title: 'Suggest a sensible next step [H]' });
+    if (!online) btn('Undo', undo, { cls: 'ghost', needAction: false, disabled: !ui.undo.length, title: ui.undo.length ? 'Take back your last action this turn [U]' : 'Nothing to undo. Drawing cards or anything else left to chance cannot be undone.' });
+    btn(excess > 0 ? `End turn (discards ${excess})` : 'End turn', endTurn, { cls: 'danger', needAction: false, title: excess > 0 ? `Ends the turn; your ${excess} oldest card${excess > 1 ? 's' : ''} go unless you choose first [E]` : 'Finish this defender\'s turn [E]' });
+    if (plotting) {
+      box.appendChild(el('p', 'traitor-note', s.plot
+        ? `<b>Traitor:</b> your plot springs within ${Math.max(1, s.plot.at - s.turn)} turn${s.plot.at - s.turn === 1 ? '' : 's'}. ` +
+          (C.rumorSize(s) > 1 ? `Witnesses will name you and ${C.rumorSize(s) - 1} other${C.rumorSize(s) === 2 ? '' : 's'}, so keep your story straight.` : 'Only you are left to blame.')
+        : '<b>Traitor:</b> Sabotage is free and invisible when you choose it. It springs at the start of a later turn, so no one can tell it was you from the timing. Witnesses will still name you and a few others.'));
+    }
+  }
+
+  // The Traitor chooses a target: a mission (it loses up to 2 progress) or the gates (a siege engine gets in).
+  function openPlot() {
+    const s = game;
+    if (!online || !isTraitorMe() || s.traitorRevealed || s.plot) return;
+    let h = '<h2 id="modalTitle">Lay a plot</h2><p>Free, and no one sees you do it. The plot springs at the start of a later turn, ' +
+      `within the next ${C.livingIdx(s).length}. A mission with no progress by then is spared and the blow falls elsewhere.</p><div class="pick plot-pick">`;
+    s.quests.forEach((q, slot) => {
+      if (!q) return;
+      const def = C.questDef(q.id);
+      h += `<button type="button" data-t="${slot}">${suitIcon(def.suit)}<b>${esc(def.name)}</b><small>${q.progress}/${q.needed} &middot; ${q.timer} rd</small></button>`;
+    });
+    h += `<button type="button" data-t="${C.CITADEL}"><b>Open a postern</b><small>+1 siege engine</small></button>`;
+    h += '</div><div class="modal-actions"><button type="button" data-a="cancel">Cancel</button></div>';
+    openModal(h);
+    const box = $('modalCard');
+    box.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { closeModal(); act(() => perform('sabotageAction', +b.dataset.t)); });
+    box.querySelector('[data-a="cancel"]').onclick = closeModal;
   }
 
   function giveTargets() {
@@ -927,6 +962,7 @@
     if (/ has failed!/.test(t)) return card('failed', 'failed', 'Mission Failed', clean, 'lose');
     if (/ is the Traitor!/.test(t)) return card('traitor', 'eye', 'The Traitor Is Unmasked', clean, 'win');
     if (/ is innocent!/.test(t)) return card('wrong', 'failed', 'Wrong Accusation', clean, 'lose');
+    if (/ has fallen!.* was the Traitor/.test(t)) return card('traitor', 'skull', 'The Traitor Has Fallen', clean, 'win');
     if (/ has fallen!/.test(t)) return card('fallen', 'skull', 'A Defender Has Fallen', clean, 'lose');
     if (/^Sabotage/.test(t)) return card('sabotage', 'eye', 'Sabotage!', clean, 'lose');
     if (/Gate opens/.test(t)) return card('black', 'sword', 'The Gate Opens', clean, 'lose');
@@ -996,8 +1032,13 @@
     // which would let you peek at the answer)
     if (name === 'endTurn') ui.undo = [];
     else if (name !== 'accuse' && game && !game.over) { ui.undo.push(window.Citadel.clone(game)); if (ui.undo.length > 8) ui.undo.shift(); }
+    const hidden = s => s ? [s.rng, s.whiteDeck.length, s.questPool.length, s.shadowDeck.length].join() : '';
+    const before = hidden(game);
     const r = window.Citadel[name](game, ...args);
     if (r && !r.ok && ui.undo.length && name !== 'endTurn') ui.undo.pop();      // a refused action changed nothing
+    // Anything that revealed something hidden (cards drawn, a mission dealt, chance rolled) cannot be taken back:
+    // undoing it would let you peek at the deck and choose again, so the undo history ends here.
+    else if (r && r.ok && game && name !== 'endTurn' && hidden(game) !== before && ui.undo.length) { ui.undo = []; r.msg = r.msg || 'New cards were revealed, so this cannot be undone.'; }
     return r;
   }
   function undo() {
@@ -1017,13 +1058,19 @@
     if (!game || game.over) return;
     Snd.unlock();
     const r = fn();
-    if (r && !r.ok) { flash(r.msg); Snd.play('deny'); } else flash('');
+    if (r && !r.ok) { flash(r.msg); Snd.play('deny'); } else flash(r && r.msg && !r.pending ? r.msg : '', true);
     render();
   }
 
   function endTurn() {
     if (!mine()) return;
     act(() => { ui.picked = []; return perform('endTurn'); });
+  }
+
+  // Over the hand limit, a card selection may be as large as the number of cards to let go.
+  function pickLimit() {
+    const p = game && game.party[game.active];
+    return Math.max(C.MAX_CONTRIBUTE, p ? p.hand.length - C.HAND_LIMIT : 0);
   }
 
   function onSlot(slot) {
@@ -1219,10 +1266,10 @@
   function saveCampaign(c) { try { localStorage.setItem(CAMPAIGN_KEY, JSON.stringify(c)); } catch (e) { /* ignore */ } }
   function campaignRow() {
     const c = readCampaign();
-    if (c.done) return '<div class="daily"><b>Campaign</b><span>All five chapters won. A legend of the Citadel.</span><button type="button" data-a="camp">Start the campaign again</button></div>';
+    if (c.done) return '<h3>Campaign</h3><div class="daily"><div><b>All five chapters won</b><small>A legend of the Citadel.</small></div><button type="button" data-a="camp">Start again</button></div>';
     const ch = CHAPTERS[c.chapter], wards = Math.min(C.WARD_MAX, c.chapter);
-    return `<div class="daily"><b>Campaign: chapter ${c.chapter + 1} of ${CHAPTERS.length}</b>` +
-      `<span>${esc(ch.title)}: ${ch.size} defenders, ${ch.diff}.${wards ? ` Your veterans start with ${wards} ward${wards > 1 ? 's' : ''}.` : ''}</span>` +
+    return `<h3>Campaign</h3><div class="daily"><div><b>Chapter ${c.chapter + 1} of ${CHAPTERS.length}: ${esc(ch.title)}</b>` +
+      `<small>${ch.size} defenders, ${ch.diff}.${wards ? ` Your veterans start with ${wards} ward${wards > 1 ? 's' : ''}.` : ''}</small></div>` +
       `<button type="button" data-a="camp">Play chapter ${c.chapter + 1}</button></div>`;
   }
   function startCampaign() {
@@ -1348,6 +1395,7 @@
 
   function openSetup() {
     const saved = ui.preview ? ui.existingSave : loadSave();
+    const hosted = NetOK && !online ? loadHosted() : null;
     const sz = ui.setup.size, df = ui.setup.difficulty;
     const sizes = [3, 4, 5, 6, 7].map(n => `<button type="button" data-size="${n}" class="${n === sz ? 'sel' : ''}">${n}</button>`).join('');
     const diffs = [['easy', 'Easy'], ['normal', 'Normal'], ['hard', 'Hard']].map(([k, l]) => `<button type="button" data-diff="${k}" class="${k === df ? 'sel' : ''}">${l}</button>`).join('');
@@ -1364,9 +1412,12 @@
       '<button type="button" class="ghost" data-a="rules">How to play</button>' +
       '<button type="button" class="ghost" data-a="practice" title="A short easy game with a coach that tells you what to do">Practice (guided)</button>' +
       '<button type="button" class="ghost" data-a="online" title="Play with friends over the internet">Play online</button>' +
+      (hosted ? `<button type="button" data-a="resumeHost" title="Carry on the online game you were hosting (round ${hosted.game.round}); friends rejoin with a new invite">Resume hosted game</button>` : '') +
       (saved ? '<button type="button" data-a="cont">Continue game</button>' : '') +
       '<button type="button" class="primary" data-a="start">Begin</button></div>');
     const card = $('modalCard');
+    const rh = card.querySelector('[data-a="resumeHost"]');
+    if (rh) rh.onclick = resumeHosted;
     card.querySelectorAll('[data-size]').forEach(b => b.onclick = () => { ui.setup.size = +b.dataset.size; card.querySelectorAll('[data-size]').forEach(x => x.classList.toggle('sel', x === b)); });
     card.querySelectorAll('[data-diff]').forEach(b => b.onclick = () => { ui.setup.difficulty = b.dataset.diff; card.querySelectorAll('[data-diff]').forEach(x => x.classList.toggle('sel', x === b)); });
     card.querySelector('[data-a="rules"]').onclick = () => { delete $('modal').dataset.lock; openRules(openSetup); };
@@ -1399,15 +1450,19 @@
         '<b>Blade</b> Charge pushes the siege back one. <b>Shield</b> Ward absorbs the next wound anyone takes (hold up to two). ' +
         '<b>Scroll</b> Lore gives the quest one more round. <b>Boot</b> Swift makes the play cost no action. Choose your pairs.</li>' +
       '<li><b>Give card:</b> pass one card to a defender standing in the same place (1 action).</li>' +
-      '<li><b>Hint</b> suggests a sensible next step.</li>' +
+      '<li><b>Hand limit 7:</b> you may hold more during your turn. At its end, choose what to <b>Discard</b>, or the oldest cards go.</li>' +
+      '<li><b>Hint</b> suggests a sensible next step. <b>Undo</b> takes back an action, but not one that drew cards.</li>' +
       '<li>Quests have a deadline in rounds. Miss it and a black sword is seated.</li>' +
       '<li>Finishing a quest seats a white sword, pushes the siege back one, and everyone draws a card.</li></ul>' +
       '<h3>The Traitor</h3><ul><li>One defender secretly serves the enemy and sabotages quests and gates.</li>' +
+      '<li>A sabotage springs at the <b>start of a turn</b>, on anyone\'s turn, so its timing tells you nothing.</li>' +
       '<li>Each sabotage produces a rumor: a short list of who was near. The Traitor is <b>always</b> on it, so compare rumors.</li>' +
-      '<li>Accuse a defender: right seats a white sword and ends the sabotage; wrong stuns them and seats a black sword.</li></ul>' +
+      '<li>Accuse a defender: right seats a white sword and ends the sabotage; wrong stuns them and seats a black sword. ' +
+        'A Traitor who falls in battle is unmasked and seats no black sword.</li></ul>' +
       '<h3>Online</h3><ul><li>Each friend controls one defender; empty seats are played by bots.</li>' +
-      '<li>If the Traitor is a person, they choose when to <b>Sabotage</b> (1 action). Their role is shown only to them.</li></ul>' +
-      '<h3>Keys</h3><p><b>1-7</b> select a card, <b>P</b>/<b>Enter</b> play, <b>G</b> gather, <b>R</b> rest, <b>H</b> hint, <b>E</b> end turn.</p>' +
+      '<li>If the Traitor is a person, they secretly <b>lay a plot</b> (free) against a mission or the gates; it springs a few turns later. Their role is shown only to them.</li>' +
+      '<li>If the host closes the page, they can <b>Resume hosted game</b> from the start screen and invite everyone back.</li></ul>' +
+      '<h3>Keys</h3><p><b>1-9</b> select a card, <b>P</b>/<b>Enter</b> play, <b>G</b> gather, <b>R</b> rest, <b>H</b> hint, <b>U</b> undo, <b>E</b> end turn.</p>' +
       '<div class="modal-actions"><button type="button" class="ghost" data-a="tour">Guided tour</button><button type="button" class="primary" data-a="back">Got it</button></div>');
     $('modalCard').querySelector('[data-a="back"]').onclick = () => { closeModal(); if (back) back(); };
     $('modalCard').querySelector('[data-a="tour"]').onclick = () => { closeModal(); startTour(); };
@@ -1458,7 +1513,7 @@
     { target: () => $('hand').closest('.panel'), title: 'Your hand', text: 'Four suits: Blade, Shield, Scroll and Boot. Click up to three cards to select them, then play them on the mission you are standing at.' },
     { target: () => $('actions').closest('.panel'), title: 'Your turn', text: 'Each defender gets <b>two actions</b>: move to a mission, play cards, gather supplies, rest, give a card or accuse. When you are done, press <b>End turn</b>. <b>Hint</b> suggests a sensible move.' },
     { target: () => $('shadowDeck'), title: 'The Shadow', text: 'Every turn starts with a Shadow card: siege engines, arrows, a whisper that steals a card, or treachery. You cannot stop it, only keep ahead of it.' },
-    { target: () => $('rumors').closest('.panel'), title: 'The Traitor', text: 'One defender secretly serves the enemy. After each sabotage, witnesses name a few suspects. <b>The Traitor is always among them</b>, so compare the lists, then press <b>Accuse</b>.' },
+    { target: () => $('rumors').closest('.panel'), title: 'The Traitor', text: 'One defender secretly serves the enemy. Their sabotage springs at the start of a turn, so the timing proves nothing, but witnesses always name a few suspects. <b>The Traitor is always among them</b>, so compare the lists, then press <b>Accuse</b>.' },
     { target: null, title: 'Good luck', text: 'Open <b>Rules</b> any time for the full summary, and <b>Settings</b> for sound, motion and text size. You can replay this tour from either place.' }
   ];
   const tour = { i: 0, el: null, on: false };
@@ -1635,13 +1690,43 @@
       const host = new O.Host({ size: ui.setup.size, difficulty: ui.setup.difficulty, name, lanOnly: box.querySelector('#lanOnly').checked,
         botDelay: delayM ? +delayM[1] : undefined, seed: seedM ? +seedM[1] : undefined });
       ui.lobbySession = host;
-      host.on('lobby', renderHostLobby);
-      host.on('start', () => { /* host UI starts itself in startOnline */ });
-      host.on('state', () => { if (online && online.session === host) render(); });
-      host.on('left', (seat, nm) => { toast(`${nm || 'A friend'} left; a bot takes over. Use Invite / rejoin to bring them back.`, 'lose'); });
-      host.on('rejoined', (seat, nm) => { toast(`${nm || 'A friend'} joined as ${C.defenderDef(game.party[seat].id).name}.`, 'win'); });
+      wireHost(host);
       renderHostLobby();
     };
+  }
+
+  // ---------- hosted games survive a closed tab: the host's browser keeps the running game ----------
+  const HOST_KEY = 'citadel-host-v1';
+  function saveHosted(host) {
+    try {
+      const snap = host.snapshot();
+      if (snap && !snap.game.over) localStorage.setItem(HOST_KEY, JSON.stringify(snap));
+      else localStorage.removeItem(HOST_KEY);
+    } catch (e) { /* storage may be blocked */ }
+  }
+  function loadHosted() {
+    try {
+      const h = JSON.parse(localStorage.getItem(HOST_KEY));
+      return h && h.v === 1 && h.game && h.game.version === 1 && !h.game.over ? h : null;
+    } catch (e) { return null; }
+  }
+  function wireHost(host) {
+    host.on('lobby', renderHostLobby);
+    host.on('state', () => { saveHosted(host); if (online && online.session === host) render(); });
+    host.on('left', (seat, nm) => { toast(`${nm || 'A friend'} left; a bot takes over. Use Invite / rejoin to bring them back.`, 'lose'); });
+    host.on('rejoined', (seat, nm) => { toast(`${nm || 'A friend'} joined as ${C.defenderDef(game.party[seat].id).name}.`, 'win'); });
+  }
+  function resumeHosted() {
+    const saved = loadHosted();
+    if (!saved || !NetOK) return;
+    delete $('modal').dataset.lock; closeModal();
+    leaveOnline(); ui.preview = false;
+    const name = (() => { try { return localStorage.getItem('citadel-name') || ''; } catch (e) { return ''; } })();
+    const host = new window.CitadelOnline.Host({ size: saved.size, difficulty: saved.difficulty, name, lanOnly: !!saved.lanOnly });
+    wireHost(host);
+    host.resume(saved.game, saved.seats);
+    beginOnline(host, host.seat, host.names(), host.game);
+    toast('Hosted game resumed. Bots hold the other seats; use Invite / rejoin to bring your friends back.', 'win');
   }
 
   function renderHostLobby() {
@@ -1768,7 +1853,7 @@
     openModal('<div class="role-banner ' + (traitor ? 'traitor' : 'loyal') + '"><small>Your secret role</small><b>' + (traitor ? 'You are the Traitor' : 'You are a loyal defender') + '</b></div>' +
       '<h2 id="modalTitle" class="sr-only">' + (traitor ? 'You are the Traitor' : 'You are a loyal defender') + '</h2>' +
       '<p>You control <b>' + esc(C.defenderDef(game.party[online.seat].id).name) + '</b>.</p>' +
-      (traitor ? '<p>Win by letting the Citadel fall. On your turn you may <b>Sabotage</b>; witnesses will name you and a few others, so strike when the rumor will not point only at you. Do not reveal your role.</p>'
+      (traitor ? '<p>Win by letting the Citadel fall. On your turn, press <b>Sabotage</b> to lay a plot against a mission or the gates. It is free, nobody sees it, and it springs at the start of a later turn, often someone else\'s. Witnesses will still name you and a few others, so pace yourself. Do not reveal your role.</p>'
                : '<p>One defender is secretly a Traitor and could be another person. Watch the rumors after each sabotage, then accuse.</p>') +
       '<div class="modal-actions"><button type="button" class="primary" data-a="go">Begin</button></div>');
     $('modalCard').querySelector('[data-a="go"]').onclick = () => { delete $('modal').dataset.lock; closeModal(); };
@@ -1806,7 +1891,7 @@
         if (!online || online.session !== guest) return;
         online.names = guest.names; game = view; render();
       });
-      guest.on('result', m => { if (!m.ok) { flash(m.msg); Snd.play('deny'); } });
+      guest.on('result', m => { if (!m.ok) { flash(m.msg); Snd.play('deny'); } else if (m.msg) flash(m.msg, true); });
       guest.on('closed', () => { if (online && online.session === guest && !game.over) connectionLost('The connection to the host was lost.', true); });
       guest.on('hostleft', () => { if (online && online.session === guest && !game.over) connectionLost('The host ended the game.'); });
       try {
@@ -1891,7 +1976,7 @@
     else if (k === 'p' || k === 'enter') {
       const q = activeQuest();
       if (q && ui.picked.length) act(() => { const r = perform('contribute', ui.picked.slice()); ui.picked = []; return r; });
-    } else if (/^[1-7]$/.test(k)) {
+    } else if (/^[1-9]$/.test(k)) {
       const c = game.party[game.active].hand[Number(k) - 1];
       if (c) toggleCard(c.id);
     } else return;
@@ -1901,14 +1986,10 @@
   $('btnNew').onclick = openSetup;
   $('btnRules').onclick = () => openRules();
 
-  // Feedback: a placeholder until there is a form. Put the form's address in FEEDBACK_URL and the button opens it.
+  // Feedback: the button appears only once a form address is set here; until then it is hidden rather than a dead end.
   const FEEDBACK_URL = '';
-  $('btnFeedback').onclick = () => {
-    if (FEEDBACK_URL) { window.open(FEEDBACK_URL, '_blank', 'noopener'); return; }
-    openModal('<h2 id="modalTitle">Feedback</h2><p>Thanks for playing! A feedback form is coming soon. For now, please reply on the post or message you used to find the game and tell us what was fun, confusing or broken.</p>' +
-      '<div class="modal-actions"><button type="button" class="primary" data-a="ok">OK</button></div>');
-    $('modalCard').querySelector('[data-a="ok"]').onclick = closeModal;
-  };
+  $('btnFeedback').hidden = !FEEDBACK_URL;
+  $('btnFeedback').onclick = () => { if (FEEDBACK_URL) window.open(FEEDBACK_URL, '_blank', 'noopener'); };
   $('btnSettings').onclick = openSettings;
 
   if (Missions) Missions.installDefs();
@@ -1918,9 +1999,21 @@
 
   // The mission list lives in the board's centre column when the board is big enough to read it there,
   // and moves under the board on small screens.
+  // When the list sits in its own column beside the board, that column's width would go to the board if the list
+  // moved onto it, so count it in. Without this the board never grows past 700 px on a 1440 px screen, the list
+  // never moves, and a third of the screen is left empty under a small board.
   function placeMissions() {
-    const big = $('stage').clientWidth >= 700;
-    const target = big ? $('boardMissions') : document.querySelector('.missions-wrap');
+    const stage = $('stage'), wrap = document.querySelector('.missions-wrap');
+    const on = document.body.classList.contains('missions-on-board');
+    let room = stage.clientWidth;
+    if (!on && wrap) {
+      const w = wrap.getBoundingClientRect(), st = stage.getBoundingClientRect();
+      if (w.width && w.left >= st.right - 1) room += w.width + 16;     // beside the board, not under it
+      const cap = parseFloat(getComputedStyle(stage.closest('.stage-wrap') || stage).maxWidth);
+      if (cap > 0) room = Math.min(room, cap);                        // a short window caps the board's width
+    }
+    const big = room >= (on ? 700 : 720);                           // a little hysteresis so it cannot flicker
+    const target = big ? $('boardMissions') : wrap;
     const list = $('missions');
     if (target && list.parentNode !== target) target.appendChild(list);
     document.body.classList.toggle('missions-on-board', big);
