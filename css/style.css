@@ -759,3 +759,5 @@ body { background: linear-gradient(rgba(8,6,5,.9), rgba(8,6,5,.9)), url('../asse
 .logo-img { height: 58px; width: auto; display: block; filter: drop-shadow(0 2px 6px rgba(0,0,0,.7)); }
 h1.has-logo { margin: 0; line-height: 0; }
 .seat { width: 3.5cqw; height: 3.5cqw; }
+.qmod { font-style: normal; font-size: .72em; padding: 0 .5em; margin-left: .3em; border-radius: 999px; border: 1px solid #c9a66b; color: #f0d79a; vertical-align: middle; }
+.qmod.rich { border-color: #6ec88a; color: #b8f0c8; }

@@ -65,8 +65,8 @@
   // needScale multiplies each quest's progress cost; timerBonus shifts its deadline in rounds.
   const DIFFICULTY = {
     easy:   { needScale: 2.4, timerBonus: 3, calm: 6, gate: 1, siege2: 2, wound: 3 },
-    normal: { needScale: 2.75, timerBonus: 2, calm: 3, gate: 2, siege2: 3, wound: 4 },
-    hard:   { needScale: 2.8, timerBonus: 1, calm: 2, gate: 3, siege2: 4, wound: 5 }
+    normal: { needScale: 2.98, timerBonus: 2, calm: 3, gate: 2, siege2: 3, wound: 4 },
+    hard:   { needScale: 3.0, timerBonus: 1, calm: 2, gate: 3, siege2: 4, wound: 5 }
   };
 
   // A round has one turn per defender, so a bigger party does more work (and meets more Shadow
@@ -97,7 +97,7 @@
   function buildShadowDeck(s) {
     const d = DIFFICULTY[s.difficulty];
     const counts = { siege1: 8, siege2: d.siege2, dread: 3, wound: d.wound, whisper: 3,
-                     gate: d.gate, calm: d.calm, hand: 3 };
+                     gate: d.gate, calm: d.calm, hand: 3, omen: 2, famine: 2 };
     const deck = [];
     Object.keys(counts).forEach(type => { for (let i = 0; i < counts[type]; i++) deck.push(type); });
     return shuffle(s, deck);
@@ -157,7 +157,9 @@
     if (!id) { s.quests[slot] = null; return; }
     const def = questDef(id);
     const scale = DIFFICULTY[s.difficulty].needScale * (SIZE_NEED[s.party.length] || 1);
-    s.quests[slot] = { id, progress: 0, needed: Math.max(3, Math.round(def.needed * scale)), timer: Math.max(3, def.timer + bonus) };
+    const r = rand(s), mod = r < 0.2 ? 'blessed' : r < 0.36 ? 'rich' : null;    // mission modifiers
+    s.quests[slot] = { id, progress: 0, needed: Math.max(3, Math.round(def.needed * scale)) + (mod === 'rich' ? 2 : 0), timer: Math.max(3, def.timer + bonus) };
+    if (mod) s.quests[slot].mod = mod;
   }
 
   // ---------- helpers ----------
@@ -309,6 +311,12 @@
       }
       case 'gate':    say(s, 'Shadow: the Gate opens. A black sword is seated.', 'lose'); addSword(s, 'black'); break;
       case 'calm':    say(s, 'Shadow: a strange calm. Nothing stirs.', ''); break;
+      case 'omen':
+        drawCards(s, s.active, 2); discardToLimit(s, s.active);
+        say(s, 'Shadow: a fair omen. ' + defenderDef(s.party[s.active].id).name + ' draws two cards.', 'win'); break;
+      case 'famine':
+        s.party.forEach(q => { if (q.alive && q.hand.length) s.whiteDiscard.push(q.hand.shift()); });
+        say(s, 'Shadow: famine. Every defender discards a card.', 'lose'); break;
       case 'hand':
         if (s.traitorRevealed || !s.party[s.traitor] || !s.party[s.traitor].alive) {
           say(s, 'Shadow: a whisper of treachery, but the Traitor is gone.', '');
@@ -439,6 +447,7 @@
     boot:   { name: 'Swift',  text: 'This play costs no action (once per turn).' }
   };
   const WARD_MAX = 2;
+  const MODS = { blessed: { name: 'Blessed', text: 'A pair played here adds +1 progress per power.' }, rich: { name: 'Rich', text: 'Needs 2 more progress, but everyone draws 2 cards when it is done.' } };
   function suitPowers(s, idx, cardIds) {
     const p = s.party[idx];
     const n = {};
@@ -489,6 +498,7 @@
     if (powers.includes('boot') && !swift) powers.splice(powers.indexOf('boot'), 1);
     const def = questDef(quest.id);
     say(s, `${defenderDef(p.id).name} advances ${def.name}: +${gain} (${Math.min(quest.progress, quest.needed)}/${quest.needed}).`, 'win');
+    if (quest.mod === 'blessed' && powers.length) { quest.progress += powers.length; if (s.stats) s.stats.progress[idx] += powers.length; say(s, 'Blessed: +' + powers.length + ' progress for the pair.', 'win'); }
     powers.forEach(su => {
       if (s.stats) s.stats.powers = (s.stats.powers || 0) + 1;
       const pw = POWERS[su];
@@ -506,7 +516,7 @@
       s.party.forEach(q => { if (q.loc === slot) q.loc = CITADEL; });
       s.quests[slot] = null;
       dealQuest(s, slot);
-      livingIdx(s).forEach(i => drawCards(s, i, 1));
+      livingIdx(s).forEach(i => drawCards(s, i, quest.mod === 'rich' ? 2 : 1));
       s.party.forEach((_, i) => discardToLimit(s, i));
       addSword(s, 'white');
     }
@@ -604,9 +614,26 @@
   }
 
   // Which cards best advance the quest the active defender stands at (up to 3).
-  function bestPlay(s, idx) {
+  function bestPlay(s, idx, smart) {
     const p = s.party[idx], q = p.loc >= 0 ? s.quests[p.loc] : null;
     if (!q) return null;
+    if (smart) {                       // try every 1 to 3 card play and value the suit powers too
+      const hand = p.hand, n = hand.length; let best = null;
+      const worth = su => su === 'blade' ? (s.siege >= 4 ? 2.2 : 1) : su === 'shield' ? 1.2 : su === 'scroll' ? (q.timer <= 3 ? 2.5 : 0.6) : 1.6;
+      const tryIds = ids => {
+        const gain = contributeValue(s, idx, ids);
+        const score = Math.min(gain, q.needed - q.progress + 1) + suitPowers(s, idx, ids).reduce((a, su) => a + worth(su), 0) - ids.length * 0.15;
+        if (!best || score > best.score) best = { ids, gain, quest: q, score };
+      };
+      for (let a = 0; a < n; a++) {
+        tryIds([hand[a].id]);
+        for (let b = a + 1; b < n; b++) {
+          tryIds([hand[a].id, hand[b].id]);
+          for (let c = b + 1; c < n; c++) tryIds([hand[a].id, hand[b].id, hand[c].id]);
+        }
+      }
+      return best;
+    }
     const ranked = p.hand.map(c => ({ id: c.id, v: cardValue(s, idx, c, q) })).sort((a, b) => b.v - a.v).slice(0, MAX_CONTRIBUTE);
     if (!ranked.length) return null;
     const ids = ranked.map(r => r.id);
@@ -614,7 +641,7 @@
   }
 
   // A recommended next step for the active defender. Used by the Hint button and handy for tests.
-  function suggest(s) {
+  function suggest(s, opts) {
     if (s.over) return null;
     const idx = s.active, p = s.party[idx];
     if (s.actionsLeft <= 0) return { type: 'end', text: 'No actions left. End your turn.' };
@@ -627,11 +654,11 @@
     const hurt = s.party.some(q => q.alive && !q.exiled && q.loc === CITADEL && q.hp < q.maxHp);
     if (p.loc === CITADEL && hurt && p.hp <= 1) return { type: 'rest', text: 'You are nearly down. Rest at the Citadel.' };
 
-    const here = bestPlay(s, idx);
+    const here = bestPlay(s, idx, !!(opts && opts.smart));
     if (here) {
       const def = questDef(here.quest.id);
       const pw = suitPowers(s, idx, here.ids).map(su => POWERS[su].name);
-      return { type: 'play', cards: here.ids, text: (pw.length ? 'A pair triggers ' + pw.join(' and ') + '. ' : '') + `Play${here.ids.length} card${here.ids.length > 1 ? 's' : ''} on ${def.name} for +${here.gain}.` };
+      return { type: 'play', cards: here.ids, text: (pw.length ? 'A pair triggers ' + pw.join(' and ') + '. ' : '') + `Play ${here.ids.length} card${here.ids.length > 1 ? 's' : ''} on ${def.name} for +${here.gain}.` };
     }
     if (p.hand.length >= 2) {
       let pick = null;
@@ -656,7 +683,7 @@
   }
 
   const api = {
-    SUITS, SUIT_LABEL, POWERS, WARD_MAX, suitPowers, SEATS, WIN_WHITE, LOSE_BLACK, SIEGE_MAX, HAND_LIMIT, SLOTS, CITADEL, MAX_CONTRIBUTE,
+    SUITS, SUIT_LABEL, MODS, POWERS, WARD_MAX, suitPowers, SEATS, WIN_WHITE, LOSE_BLACK, SIEGE_MAX, HAND_LIMIT, SLOTS, CITADEL, MAX_CONTRIBUTE,
     DEFENDERS, QUEST_DEFS, DIFFICULTY,
     createGame, move, contribute, contributeValue, drawAction, rest, accuse, give, endTurn, sabotageAction,
     suggest, redact, suspicion, nextShadowPeek, questDef, defenderDef, count, livingIdx, locName, clone

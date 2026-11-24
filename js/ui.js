@@ -124,7 +124,7 @@
 
   // ---------- path of destruction + card flights ----------
   // The trail lists every Shadow card drawn this game, so the whole table can see how the ruin is spreading.
-  const TRAIL_TONE = { calm: 'calm', dread: 'warn', whisper: 'warn', wound: 'warn', hand: 'warn', siege1: 'ruin', siege2: 'ruin', gate: 'ruin', failed: 'ruin' };
+  const TRAIL_TONE = { calm: 'calm', omen: 'calm', famine: 'warn', dread: 'warn', whisper: 'warn', wound: 'warn', hand: 'warn', siege1: 'ruin', siege2: 'ruin', gate: 'ruin', failed: 'ruin' };
   const trailName = t => t === 'failed' ? ['Quest Lost', 'A quest ran out of time.'] : SHADOW_INFO[t];
   function renderTrail(s) {
     const box = $('trail');
@@ -173,7 +173,7 @@
     siege1: ['Siege Engine', 'Another engine rolls up to the walls.'], siege2: ['Full Assault', 'Two engines hit the walls at once.'],
     dread: ['Dread', 'Every quest deadline shortens.'], wound: ['Arrow Storm', 'A defender is wounded.'],
     whisper: ['Whisper', 'A card is stolen from the active hand.'], gate: ['The Gate Opens', 'A black sword is seated.'],
-    calm: ['Calm', 'Nothing stirs. For now.'], hand: ['Treachery', 'The Traitor strikes from within.']
+    calm: ['Calm', 'Nothing stirs. For now.'], omen: ['Fair Omen', 'The active defender draws two cards.'], famine: ['Famine', 'Every defender discards a card.'], hand: ['Treachery', 'The Traitor strikes from within.']
   };
 
   function snapshot(s) {
@@ -371,7 +371,9 @@
       const def = C.questDef(q.id);
       const pct = Math.min(100, Math.round(q.progress / q.needed * 100));
       if (q.timer <= 2) b.classList.add('urgent');
-      b.innerHTML = `<span class="qname">${esc(def.name)}</span>` +
+      const mod = q.mod && C.MODS[q.mod];
+      if (mod) b.title = mod.name + ': ' + mod.text;
+      b.innerHTML = `<span class="qname">${esc(def.name)}${mod ? ' <em class="qmod ' + q.mod + '">' + mod.name + '</em>' : ''}</span>` +
         `<span class="qmeta">${suitIcon(def.suit)}<span>${q.progress}/${q.needed}</span>` +
         `<span class="timer" title="rounds left">${q.timer} rd</span></span>` +
         `<span class="bar"><i style="width:${pct}%"></i></span>`;
@@ -403,7 +405,7 @@
     // active defender
     const peek = C.nextShadowPeek(s);
     const peekText = { siege1: 'a siege engine', siege2: 'a full assault', dread: 'dread', wound: 'an arrow', whisper: 'a whisper',
-      gate: 'the Gate', calm: 'calm', hand: 'treachery', reshuffle: 'a reshuffle' };
+      gate: 'the Gate', calm: 'calm', omen: 'a fair omen', famine: 'famine', hand: 'treachery', reshuffle: 'a reshuffle' };
     let who = '';
     if (online) {
       who = mine() ? '<div class="turn-tag mine">Your turn</div>' : `<div class="turn-tag">Waiting for ${esc(online.names[s.active] || 'a player')}</div>`;

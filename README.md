@@ -262,11 +262,11 @@ The balance simulation plays seeded games with a simple greedy bot, per difficul
 
 | Defenders | Easy | Normal | Hard |
 |---|---|---|---|
-| 3 | 89% | 27% | 9% |
-| 4 | 81% | 41% | 19% |
-| 5 | 89% | 47% | 29% |
-| 6 | 94% | 57% | 28% |
-| 7 | 96% | 53% | 27% |
+| 3 | 95% | 26% | 6% |
+| 4 | 80% | 35% | 15% |
+| 5 | 88% | 45% | 23% |
+| 6 | 90% | 51% | 16% |
+| 7 | 95% | 63% | 31% |
 
 The bot is a simple greedy player: it never passes cards and only accuses when one defender is named in every
 rumor. A thoughtful human should do better. Tune `DIFFICULTY` and `SIZE_NEED` in `js/engine.js` and rerun `tools\run-tests.ps1`.

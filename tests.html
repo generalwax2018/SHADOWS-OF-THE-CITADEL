@@ -44,7 +44,7 @@ test('same seed gives identical games', () => {
 test('setup: 5 defenders, 4 cards each, 7 quests dealt, one traitor', () => {
   const s = C.createGame({ seed: 1, partySize: 5 });
   eq(s.party.length, 5);
-  ok(s.party.every(p => p.hand.length >= 4 || !p.alive));
+  ok(s.party.every(p => p.hand.length >= (s.lastShadow === 'famine' ? 3 : 4) || !p.alive));   // famine on the opening draw costs a card
   eq(s.quests.filter(Boolean).length, 7);
   ok(s.traitor >= 0 && s.traitor < 5);
 });
@@ -326,6 +326,14 @@ test('a ward absorbs exactly one wound', () => {
   const lost = s2.party.reduce((n, p, k) => n + (before[k] - p.hp), 0);
   eq(lost, 0, 'the wound was absorbed'); eq(s2.ward, 0, 'and the ward is spent');
 });
+test('the smart bot plays pairs when a pair helps, and the Hint wording has a space', () => {
+  const s = fresh(88, 5); const a = s.active; C.move(s, 0); s.siege = 6;
+  s.party[a].hand = [{ id: 801, suit: 'blade' }, { id: 802, suit: 'blade' }, { id: 803, suit: 'boot' }, { id: 804, suit: 'scroll' }];
+  const h = C.suggest(s, { smart: true });
+  eq(h.type, 'play', 'it plays');
+  ok(C.suitPowers(s, a, h.cards).includes('blade'), 'it keeps the Blade pair for Charge when the siege is high');
+  ok(/Play \d card/.test(h.text), 'the hint text reads "Play 2 cards"');
+});
 test('the path of destruction records every Shadow card and lost quest, and survives redaction and old saves', () => {
   const s = fresh(61, 5);
   eq(s.trail.length, 1, 'the opening turn drew one Shadow card');
@@ -345,7 +353,7 @@ test('run statistics count progress, completed and failed missions and wounds', 
   const s = fresh(51, 5);
   eq(s.stats.progress.length, 5, 'one progress counter per defender');
   const a = s.active; s.party[a].id = 'shield'; C.move(s, 0);
-  const q = s.quests[0]; q.progress = q.needed - 3;
+  const q = s.quests[0]; q.mod = null; q.progress = q.needed - 3;
   s.party[a].hand = [{ id: 880, suit: C.questDef(q.id).suit }, { id: 881, suit: C.questDef(q.id).suit }];
   const r = C.contribute(s, [880, 881]);
   eq(s.stats.progress[a], r.gain, 'progress credited to the defender who played');

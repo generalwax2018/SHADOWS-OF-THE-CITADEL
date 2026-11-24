@@ -176,7 +176,7 @@
     _botStep() {
       const g = this.game;
       if (!g || g.over || this.seats[g.active].kind !== 'bot') return;
-      const h = C.suggest(g);
+      const h = C.suggest(g, { smart: true });
       let r = { ok: false };
       if (h) {
         if (h.type === 'play') r = C.contribute(g, h.cards);
