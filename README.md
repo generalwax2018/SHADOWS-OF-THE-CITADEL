@@ -224,6 +224,9 @@ The gear button opens **Settings**: master volume, sound effects, ambience, moti
 full), automatic expedition view, and text size. Settings are stored in your browser. **Replay guided tour** (in
 Settings or Rules) walks through the board in seven steps; it is offered once on your first game.
 
+#### Rejoining and swapping in friends
+If a friend's connection drops, a bot plays their seat. The host presses **Invite / rejoin** (top bar), picks that seat, and sends a new invite code. The friend taps **Rejoin** on their Disconnected screen and pastes it; they get their defender, their hand and their secret role back. The same button seats a new friend in place of any bot mid-game. If the *host* closes the page, the game ends for everyone.
+
 ### Seeds and challenge linksEvery game has a seed. Enter one on the setup screen, or share a link like `index.html#seed=42&size=4&diff=hard`
 (the end screen has a **Copy challenge link** button). The same seed deals the same game, so friends can compare runs.
 

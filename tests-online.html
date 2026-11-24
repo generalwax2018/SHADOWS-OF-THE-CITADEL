@@ -178,6 +178,35 @@ async function connect(host, name) {
     h2.close();
   });
 
+  await test('a dropped player can rejoin the running game and gets their seat back', async () => {
+    const h3 = new O.Host({ size: 3, seed: 78, botDelay: 5, lanOnly: true, name: 'Hosty' });
+    const c = await connect(h3, 'Rita');
+    let left = null; h3.on('left', (s, n) => { left = [s, n]; });
+    h3.start();
+    c.guest.close();
+    await waitFor(() => left, 15000, 'drop detected');
+    ok(h3.seats[c.seat].dropped === true, 'the seat is marked as left');
+    ok(h3.openSeat() === c.seat, 'the seat that left is offered first');
+    // the host invites that seat again, mid-game
+    let g2 = null, started = null;
+    const inv = await h3.invite({ seat: c.seat });
+    eq(inv.seat, c.seat, 'same seat');
+    eq(h3.seats[c.seat].kind, 'pending', 'pending while the code is answered');
+    const guest = new O.Guest({ name: 'Rita', lanOnly: true });
+    guest.on('start', v => { started = v; });
+    const reply = await guest.join(inv.code);
+    await h3.accept(inv.seat, reply);
+    await waitFor(() => started, 15000, 'start message after rejoining');
+    eq(h3.seats[c.seat].kind, 'human', 'a human again');
+    ok(!/bot/i.test(h3.seats[c.seat].name), 'no longer called a bot');
+    eq(started.viewer, c.seat, 'redacted view for that seat');
+    eq(guest.seat, c.seat, 'guest knows its seat');
+    // a cancelled mid-game invite puts the bot back
+    const inv2 = await h3.invite({ seat: (c.seat === 1 ? 2 : 1) });
+    h3.cancelInvite(inv2.seat);
+    eq(h3.seats[inv2.seat].kind, 'bot', 'cancelling restores the bot');
+    guest.close(); h3.close();
+  });
   host.close();
   document.title = `${passed} passed, ${failed} failed`;
   out.insertAdjacentHTML('beforeend', `<h2 id="summary">${passed} passed, ${failed} failed</h2>`);

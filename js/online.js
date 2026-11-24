@@ -57,15 +57,22 @@
 
     names() { return this.seats.map(s => s.name); }
     lobby() { return this.seats.map(s => ({ kind: s.kind === 'pending' ? 'bot' : s.kind, name: s.name })); }
-    openSeat() { return this.seats.findIndex(s => s.kind === 'bot'); }
+    // The seat the next friend should take. Mid-game, a seat whose player left comes first.
+    openSeat() {
+      if (this.game) { const d = this.seats.findIndex(s => s.kind === 'bot' && s.dropped); if (d >= 0) return d; }
+      return this.seats.findIndex(s => s.kind === 'bot');
+    }
+    // Seats a friend could (re)join mid-game: everything a bot is playing.
+    botSeats() { return this.seats.map((s, seat) => ({ seat, name: s.name, dropped: !!s.dropped, kind: s.kind })).filter(x => x.kind === 'bot'); }
 
     // Start a handshake with one friend. Returns the invite code to send them.
-    async invite() {
-      if (this.game) throw new Error('The game has already started.');
-      const seat = this.openSeat();
+    // Mid-game this is also how a friend rejoins (or a new friend takes over a bot): pass { seat } to pick the seat.
+    async invite(opts) {
+      let seat = opts && Number.isInteger(opts.seat) && this.seats[opts.seat] && this.seats[opts.seat].kind === 'bot' ? opts.seat : this.openSeat();
       if (seat < 0) throw new Error('Every seat is taken.');
       const peer = new N.Peer({ lanOnly: this.lanOnly });
-      this.seats[seat] = { kind: 'pending', name: 'Waiting...', peer };
+      const prev = this.game ? this.seats[seat] : null;           // a running game keeps the bot playing until the friend is in
+      this.seats[seat] = { kind: 'pending', name: prev ? prev.name : 'Waiting...', peer, prev };
       peer.onopen = () => this._joined(seat, peer);
       peer.onmessage = m => this._message(seat, m);
       peer.onclose = () => this._dropped(seat, peer);
@@ -84,7 +91,7 @@
       const s = this.seats[seat];
       if (s && s.kind === 'pending') {
         s.peer.onclose = null; s.peer.close();
-        this.seats[seat] = { kind: 'bot', name: 'Bot ' + seat, peer: null };
+        this.seats[seat] = s.prev || { kind: 'bot', name: 'Bot ' + seat, peer: null };
         this.ev.emit('lobby', this.lobby());
       }
     }
@@ -92,9 +99,16 @@
     _joined(seat, peer) {
       const s = this.seats[seat];
       if (!s || s.peer !== peer) return;
-      s.kind = 'human'; s.name = 'Player ' + (seat + 1); s.joined = true;
+      const g = this.game;
+      s.kind = 'human'; s.joined = true;
+      s.name = s.prev && s.prev.name ? s.prev.name.replace(/ \(bot\)$/, '') : 'Player ' + (seat + 1);
+      s.prev = null; delete s.dropped;
       this.ev.emit('lobby', this.lobby());
-      this._sendLobby();
+      if (g) {                                   // joining a running game: give them the game, then everyone the new names
+        s.peer.send({ t: 'start', you: seat, names: this.names(), view: C.redact(g, seat) });
+        this.ev.emit('rejoined', seat, s.name);
+        this.broadcast();
+      } else this._sendLobby();
     }
     _sendLobby() {
       this.seats.forEach((s, i) => {
@@ -105,7 +119,8 @@
       const s = this.seats[seat];
       if (!s || s.peer !== peer) return;
       const was = s.kind;
-      this.seats[seat] = { kind: 'bot', name: (was === 'human' ? s.name + ' (bot)' : 'Bot ' + seat), peer: null };
+      this.seats[seat] = was === 'pending' && s.prev ? s.prev
+        : { kind: 'bot', name: (was === 'human' ? s.name + ' (bot)' : 'Bot ' + seat), peer: null, dropped: was === 'human' };
       if (was === 'human') {
         this.ev.emit('left', seat, s.name);
         if (this.game) { this.broadcast(); this.runBots(); } else this._sendLobby();
@@ -166,16 +181,18 @@
       this.runBots();
     }
 
+    _botTurn() { const k = this.seats[this.game.active].kind; return k === 'bot' || k === 'pending'; }   // an invite still being answered is played by the bot
+
     runBots() {
       clearTimeout(this.botTimer);
       const g = this.game;
       if (!g || g.over) return;
-      if (this.seats[g.active].kind !== 'bot') return;
+      if (!this._botTurn()) return;
       this.botTimer = setTimeout(() => this._botStep(), this.botDelay);
     }
     _botStep() {
       const g = this.game;
-      if (!g || g.over || this.seats[g.active].kind !== 'bot') return;
+      if (!g || g.over || !this._botTurn()) return;
       const h = C.suggest(g, { smart: true });
       let r = { ok: false };
       if (h) {

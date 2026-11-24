@@ -1443,6 +1443,8 @@
 
   function updateNetChip() {
     const chip = $('netChip');
+    const inviteBtn = $('btnInvite');
+    if (inviteBtn) inviteBtn.hidden = !(online && online.role === 'host' && game && !game.over);
     if (!online) { chip.hidden = true; return; }
     chip.hidden = false;
     const role = game ? (isTraitorMe() && !game.traitorRevealed ? ' <span class="role-chip traitor">Traitor</span>' : isTraitorMe() ? ' <span class="role-chip">Unmasked</span>' : ' <span class="role-chip loyal">Loyal</span>') : '';
@@ -1504,7 +1506,8 @@
       host.on('lobby', renderHostLobby);
       host.on('start', () => { /* host UI starts itself in startOnline */ });
       host.on('state', () => { if (online && online.session === host) render(); });
-      host.on('left', (seat, nm) => { toast(`${nm || 'A friend'} left; a bot takes over.`, 'lose'); });
+      host.on('left', (seat, nm) => { toast(`${nm || 'A friend'} left; a bot takes over. Use Invite / rejoin to bring them back.`, 'lose'); });
+      host.on('rejoined', (seat, nm) => { toast(`${nm || 'A friend'} joined as ${C.defenderDef(game.party[seat].id).name}.`, 'win'); });
       renderHostLobby();
     };
   }
@@ -1565,6 +1568,46 @@
     }
   }
 
+  // Mid-game: the host brings a friend back (or seats a new friend in place of a bot).
+  function openRejoin(host) {
+    if (!host || !host.game) return;
+    const seats = host.botSeats();
+    openModal('<h2 id="modalTitle">Invite a friend or bring someone back</h2>' +
+      (seats.length ? '<p>Pick the seat they will take. A bot keeps playing it until they connect.</p><div class="pick" id="rjSeats">' +
+        seats.map(x => `<button type="button" data-seat="${x.seat}"><div class="portrait"><img src="${portraitUrl(x.seat)}" alt=""></div>${esc(dname(x.seat))}<br><small>${x.dropped ? esc(x.name.replace(/ \(bot\)$/, '')) + ' left' : 'bot'}</small></button>`).join('') + '</div>'
+        : '<p>Every seat already has a person.</p>') +
+      '<div id="rjPane"></div><div class="modal-actions"><button type="button" data-a="close">Close</button></div>');
+    const box = $('modalCard'), pane = box.querySelector('#rjPane');
+    box.querySelector('[data-a="close"]').onclick = closeModal;
+    box.querySelectorAll('#rjSeats button').forEach(b => b.onclick = async () => {
+      const seat = +b.dataset.seat;
+      box.querySelectorAll('#rjSeats button').forEach(x => { x.disabled = true; x.classList.toggle('sel', x === b); });
+      pane.innerHTML = '<p class="msg ok">Preparing invite...</p>';
+      try {
+        const { code } = await host.invite({ seat });
+        pane.innerHTML = '<h3>1. Send this invite code</h3><textarea class="code" readonly rows="3">' + esc(code) + '</textarea>' +
+          '<div class="row"><button type="button" data-a="copy">Copy invite</button></div>' +
+          '<h3>2. Paste the reply code they send back</h3><textarea class="code" rows="3" id="rjReply" placeholder="SOC1...."></textarea>' +
+          '<div class="row"><button type="button" class="primary" data-a="connect">Connect</button><button type="button" class="ghost" data-a="drop">Cancel invite</button></div><p class="msg" id="rjMsg"></p>';
+        pane.querySelector('[data-a="copy"]').onclick = e => copyText(code, e.currentTarget);
+        pane.querySelector('[data-a="drop"]').onclick = () => { host.cancelInvite(seat); closeModal(); };
+        pane.querySelector('[data-a="connect"]').onclick = async e => {
+          const msg = pane.querySelector('#rjMsg'), btn = e.currentTarget;
+          msg.className = 'msg ok'; msg.textContent = 'Connecting...'; btn.disabled = true;
+          try {
+            await host.accept(seat, pane.querySelector('#rjReply').value);
+            const t0 = Date.now();
+            const wait = setInterval(() => {
+              if (host.seats[seat].kind === 'human') { clearInterval(wait); closeModal(); }
+              else if (Date.now() - t0 > 25000) { clearInterval(wait); msg.className = 'msg'; msg.textContent = 'Could not connect. Check both codes were copied in full, then try again.'; btn.disabled = false; }
+            }, 300);
+          } catch (err) { msg.className = 'msg'; msg.textContent = err.message; btn.disabled = false; }
+        };
+      } catch (err) { pane.innerHTML = '<p class="msg">' + esc(err.message) + '</p>'; box.querySelectorAll('#rjSeats button').forEach(x => { x.disabled = false; }); }
+    });
+  }
+  $('btnInvite').onclick = () => { if (online && online.role === 'host') openRejoin(online.session); };
+
   function startOnlineHost(host) {
     closeModal(); delete $('modal').dataset.lock;
     ui.preview = false;
@@ -1591,11 +1634,11 @@
     $('modalCard').querySelector('[data-a="go"]').onclick = () => { delete $('modal').dataset.lock; closeModal(); };
   }
 
-  function openJoin() {
+  function openJoin(rejoin) {
     const O = window.CitadelOnline;
     const nameSaved = (() => { try { return localStorage.getItem('citadel-name') || ''; } catch (e) { return ''; } })();
     $('modal').dataset.lock = '1';
-    openModal('<h2 id="modalTitle">Join a game</h2>' +
+    openModal('<h2 id="modalTitle">' + (rejoin ? 'Rejoin the game' : 'Join a game') + '</h2>' + (rejoin ? '<p>Ask the host to press <b>Invite / rejoin</b> and pick your seat, then paste the new invite code below.</p>' : '') +
       '<h3>Your name</h3><input id="joinName" class="seed-input" maxlength="16" placeholder="Player" value="' + esc(nameSaved) + '">' +
       '<label class="check"><input type="checkbox" id="joinLan"> Same network only (does not contact a STUN server)</label>' +
       '<h3>1. Paste the host\'s invite code</h3><textarea class="code" rows="3" id="invite" placeholder="SOC1...."></textarea>' +
@@ -1624,7 +1667,7 @@
         online.names = guest.names; game = view; render();
       });
       guest.on('result', m => { if (!m.ok) { flash(m.msg); Snd.play('deny'); } });
-      guest.on('closed', () => { if (online && online.session === guest && !game.over) connectionLost('The connection to the host was lost.'); });
+      guest.on('closed', () => { if (online && online.session === guest && !game.over) connectionLost('The connection to the host was lost.', true); });
       guest.on('hostleft', () => { if (online && online.session === guest && !game.over) connectionLost('The host ended the game.'); });
       try {
         const reply = await guest.join(box.querySelector('#invite').value);
@@ -1636,10 +1679,13 @@
     };
   }
 
-  function connectionLost(text) {
+  function connectionLost(text, canRejoin) {
     $('modal').dataset.lock = '1';
-    openModal('<h2 id="modalTitle">Disconnected</h2><p>' + esc(text) + '</p><div class="modal-actions">' +
+    openModal('<h2 id="modalTitle">Disconnected</h2><p>' + esc(text) + (canRejoin ? ' A bot is playing your seat. Ask the host to press <b>Invite / rejoin</b>, then rejoin with the new code.' : '') + '</p><div class="modal-actions">' +
+      (canRejoin ? '<button type="button" class="primary" data-a="rejoin">Rejoin</button>' : '') +
       '<button type="button" class="ghost" data-a="view">View board</button><button type="button" class="primary" data-a="menu">Main menu</button></div>');
+    const rj = $('modalCard').querySelector('[data-a="rejoin"]');
+    if (rj) rj.onclick = () => { delete $('modal').dataset.lock; leaveOnline(); ui.preview = false; openJoin(true); };
     $('modalCard').querySelector('[data-a="view"]').onclick = () => { delete $('modal').dataset.lock; closeModal(); };
     $('modalCard').querySelector('[data-a="menu"]').onclick = () => { delete $('modal').dataset.lock; leaveOnline(); ui.preview = false; openSetup(); };
     Snd.play('deny');
