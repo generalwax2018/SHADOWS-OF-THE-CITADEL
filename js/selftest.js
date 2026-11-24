@@ -46,7 +46,13 @@
       const urls = [...faces]; const okAll = await Promise.all(urls.map(u => new Promise(r => { const i = new Image(); i.onload = () => r(true); i.onerror = () => r(false); i.src = u; })));
       check('the extra card designs load', okAll.every(Boolean), urls.join(' | ')); }    { const et = btnByText(document.getElementById('actions'), /End turn/);
       check('the End turn button is visible and enabled', !!et && !et.disabled && getComputedStyle(et).opacity === '1' && et.getBoundingClientRect().width > 20, et ? 'opacity ' + getComputedStyle(et).opacity : 'missing'); }
-    check('hand shows cards', document.querySelectorAll('#hand .card').length === g.party[g.active].hand.length);
+    { const act0 = document.getElementById('actions'); const n0 = g.party[g.active].hand.length, ac0 = g.actionsLeft;
+      const ub = btnByText(act0, /^Undo/);
+      check('Undo is offered and starts disabled', !!ub && ub.disabled);
+      click(btnByText(act0, /^Gather/));
+      check('gathering changes the hand and enables Undo', g.party[g.active].hand.length >= n0 && g.actionsLeft === ac0 - 1 && !btnByText(document.getElementById('actions'), /^Undo/).disabled);
+      click(btnByText(document.getElementById('actions'), /^Undo/));
+      check('Undo takes the action back', g.party[g.active].hand.length === n0 && g.actionsLeft === ac0 && btnByText(document.getElementById('actions'), /^Undo/).disabled); }    check('hand shows cards', document.querySelectorAll('#hand .card').length === g.party[g.active].hand.length);
     check('wheel has 12 seats', $('wheel').children.length === 12);
     check('siege row has 12 dots', $('siegeRow').children.length === 12);
     check('weather canvas present', !!$('weatherCanvas'));

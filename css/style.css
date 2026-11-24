@@ -745,3 +745,17 @@ html.reduce-motion .stage .torch, html.reduce-motion .stage .fog, html.reduce-mo
 .role-chip.traitor { border-color: #d0584a; color: #ffc4b8; background: #2a1210; }
 .traitor-act { grid-column: 1 / -1; background: linear-gradient(180deg, #4a1410, #2a0a08); border-color: #d0584a; color: #ffd0c6; box-shadow: 0 0 14px rgba(208,60,40,.35); }
 .traitor-note { grid-column: 1 / -1; margin: 4px 0 0; font-size: 12px; color: #e0a89c; }
+
+/* ======================= painted game pieces (assets/ui) ======================= */
+/* sword wheel seats and siege engines use the painted tokens; the colour/glow rules above stay as the fallback */
+.seat { background: url('../assets/ui/token-seat.webp') center / contain no-repeat; border-color: transparent; box-shadow: none; }
+.seat.white { background: url('../assets/ui/token-white.webp') center / contain no-repeat; border-color: transparent; box-shadow: 0 0 1.4cqw rgba(255,255,255,.7); border-radius: 50%; }
+.seat.black { background: url('../assets/ui/token-black.webp') center / contain no-repeat; border-color: transparent; box-shadow: 0 0 1.2cqw rgba(0,0,0,.9); border-radius: 50%; }
+.siege-dot { background: url('../assets/ui/token-siege-off.webp') center / contain no-repeat; border-color: transparent; }
+.siege-dot.on { background: url('../assets/ui/token-siege-on.webp') center / contain no-repeat; border-color: transparent; box-shadow: 0 0 1.6cqw rgba(255,110,40,.75); }
+.fly-ghost.shadow-back { background: url('../assets/ui/back-shadow.webp') center / cover; border-color: #8a5aa8; }
+.fly-ghost.hand-back { background: url('../assets/ui/back-supply.webp') center / cover; border-color: #5a7aa8; }
+body { background: linear-gradient(rgba(8,6,5,.9), rgba(8,6,5,.9)), url('../assets/ui/table.webp') center top / 900px auto; }
+.logo-img { height: 58px; width: auto; display: block; filter: drop-shadow(0 2px 6px rgba(0,0,0,.7)); }
+h1.has-logo { margin: 0; line-height: 0; }
+.seat { width: 3.5cqw; height: 3.5cqw; }

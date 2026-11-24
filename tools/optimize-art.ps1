@@ -9,6 +9,7 @@
 param(
   [string]$Path = "",
   [double]$Quality = 0.82,
+  [switch]$KeyMagenta,         # make a flat magenta background transparent and crop to the artwork
   [int]$MaxWidth = 0,          # shrink images wider than this (0 = keep the size)
   [switch]$RemoveOriginals,
   [int]$Port = 9347
@@ -65,12 +66,24 @@ try {
 
   # the encoder: draw the image onto a canvas and ask the browser for WebP
   [void](Js $ws @'
-window.toWebp = (uri, q, mw) => new Promise((res, rej) => {
+window.toWebp = (uri, q, mw, key) => new Promise((res, rej) => {
   const i = new Image();
   i.onload = () => {
     const k = mw && i.naturalWidth > mw ? mw / i.naturalWidth : 1;
-    const c = document.createElement('canvas'); c.width = Math.round(i.naturalWidth * k); c.height = Math.round(i.naturalHeight * k);
-    c.getContext('2d').drawImage(i, 0, 0, c.width, c.height);
+    let c = document.createElement('canvas'); c.width = Math.round(i.naturalWidth * k); c.height = Math.round(i.naturalHeight * k);
+    let ctx = c.getContext('2d'); ctx.drawImage(i, 0, 0, c.width, c.height);
+    if (key) {
+      const id = ctx.getImageData(0, 0, c.width, c.height), d = id.data; let x0 = c.width, y0 = c.height, x1 = 0, y1 = 0;
+      for (let p = 0, n = 0; p < d.length; p += 4, n++) {
+        const r = d[p], g = d[p + 1], b = d[p + 2], m = Math.min(r, b) - g;
+        if (m >= 100) d[p + 3] = 0;
+        else if (m > 35) { d[p + 3] = Math.round(255 * (100 - m) / 65); const lim = Math.round((g + Math.max(r, b)) / 2); d[p] = Math.min(r, lim); d[p + 2] = Math.min(b, lim); }
+        if (d[p + 3] > 8) { const x = n % c.width, y = (n / c.width) | 0; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+      }
+      ctx.putImageData(id, 0, 0);
+      const w2 = Math.max(1, x1 - x0 + 1), h2 = Math.max(1, y1 - y0 + 1), c2 = document.createElement('canvas'); c2.width = w2; c2.height = h2;
+      c2.getContext('2d').drawImage(c, x0, y0, w2, h2, 0, 0, w2, h2); c = c2;
+    }
     c.toBlob(b => { if (!b || b.type !== 'image/webp') return rej('this browser cannot encode WebP');
       const fr = new FileReader(); fr.onload = () => res(fr.result.split(',')[1]); fr.readAsDataURL(b); }, 'image/webp', q);
   };
@@ -85,7 +98,7 @@ window.toWebp = (uri, q, mw) => new Promise((res, rej) => {
     $mime = if ($f.Extension -eq '.png') { 'image/png' } else { 'image/jpeg' }
     $bytes = [IO.File]::ReadAllBytes($f.FullName)
     try {
-      $b64 = Js $ws ("window.toWebp('data:$mime;base64," + [Convert]::ToBase64String($bytes) + "', $Quality, $MaxWidth)")
+      $b64 = Js $ws ("window.toWebp('data:$mime;base64," + [Convert]::ToBase64String($bytes) + "', $Quality, $MaxWidth, $(if ($KeyMagenta) { 'true' } else { 'false' }))")
       $webp = [Convert]::FromBase64String($b64)
     } catch { Write-Output ("FAILED  " + $f.Name + ": " + $_.Exception.Message); $exit = 1; continue }
     if ($webp.Length -ge $bytes.Length) { Write-Output ("kept    {0}: WebP would not be smaller ({1} KB vs {2} KB)" -f $f.Name, [math]::Round($webp.Length/1KB), [math]::Round($bytes.Length/1KB)); continue }

@@ -10,7 +10,7 @@
 
   let game = null;
   let online = null;          // { role: 'host'|'guest', seat, session, names } while playing online
-  const ui = { selectedSlot: null, picked: [], shownLog: 0, setup: { size: 5, difficulty: 'normal' }, prev: null, endShown: false };
+  const ui = { undo: [], selectedSlot: null, picked: [], shownLog: 0, setup: { size: 5, difficulty: 'normal' }, prev: null, endShown: false };
 
   // ---------- settings (remembered in this browser) ----------
   const SETTINGS_KEY = 'citadel-settings-v1';
@@ -437,7 +437,7 @@
       if (!reduced && !ui.fast && ui.newCards && ui.newCards.has(c.id)) {
         const delay = dealt++ * 130, dest = b.getBoundingClientRect();
         b.style.visibility = 'hidden';
-        fly(source, dest, 560, delay, 'suit-' + c.suit, () => { b.style.visibility = ''; b.classList.add('landed'); setTimeout(() => b.classList.remove('landed'), 400); });
+        fly(source, dest, 560, delay, 'hand-back', () => { b.style.visibility = ''; b.classList.add('landed'); setTimeout(() => b.classList.remove('landed'), 400); });
         Snd.play('draw');
       }
     });
@@ -798,6 +798,7 @@
       sab.dataset.traitor = '1';
     }
     btn('Hint', hint, { cls: 'ghost', needAction: false, title: 'Suggest a sensible next step [H]' });
+    if (!online) btn('Undo', undo, { cls: 'ghost', needAction: false, disabled: !ui.undo.length, title: 'Take back your last action this turn [U]' });
     btn('End turn', endTurn, { cls: 'danger', needAction: false, title: 'Finish this defender\'s turn [E]' });
     if (online && isTraitorMe() && !s.traitorRevealed) {
       box.appendChild(el('p', 'traitor-note', '<b>Traitor:</b> Sabotage costs 1 action and strikes where you stand. Witnesses will name you and a few others, so pick your moment.'));
@@ -977,7 +978,23 @@
       if (!mine()) return { ok: false, msg: 'It is not your turn.' };
       return online.session.act(name, args);
     }
-    return window.Citadel[name](game, ...args);
+    // offline: remember the state first so the last action can be undone (not after End turn, and never an accusation,
+    // which would let you peek at the answer)
+    if (name === 'endTurn') ui.undo = [];
+    else if (name !== 'accuse' && game && !game.over) { ui.undo.push(window.Citadel.clone(game)); if (ui.undo.length > 8) ui.undo.shift(); }
+    const r = window.Citadel[name](game, ...args);
+    if (r && !r.ok && ui.undo.length && name !== 'endTurn') ui.undo.pop();      // a refused action changed nothing
+    return r;
+  }
+  function undo() {
+    if (online || !ui.undo.length || !game) return;
+    const snap = ui.undo.pop();                       // restore in place so anything holding the game object stays valid
+    Object.keys(game).forEach(k => { delete game[k]; });
+    Object.assign(game, snap);
+    ui.picked = []; ui.prev = null; ui.shownLog = 0;
+    $('log').innerHTML = ''; clearChronicle();
+    flash('Undone.', true);
+    render();
   }
   function mine() { return !online || (game && game.active === online.seat); }
   function isTraitorMe() { return !!online && !!game && game.traitor === online.seat && game.traitor >= 0; }
@@ -1623,7 +1640,7 @@
   // ---------- boot ----------
   function startFrom(g) {
     game = g;
-    ui.selectedSlot = null; ui.picked = []; ui.shownLog = 0; ui.prev = null; ui.endShown = false; ui.expKey = null;
+    ui.selectedSlot = null; ui.picked = []; ui.shownLog = 0; ui.prev = null; ui.endShown = false; ui.expKey = null; ui.undo = [];
     closeExpedition(true);
     clearChronicle();
     $('log').innerHTML = '';
@@ -1651,6 +1668,7 @@
     const k = e.key.toLowerCase();
     if (k === 'e') endTurn();
     else if (k === 'g') act(() => perform('drawAction'));
+    else if (k === 'u') undo();
     else if (k === 'r') act(() => perform('rest'));
     else if (k === 'h') hint();
     else if (k === 'p' || k === 'enter') {
@@ -1687,7 +1705,7 @@
   }
 
   // test hook
-  window.__citadel = { get game() { return game; }, render, startFrom, mw, openExpedition, closeExpedition, renderTrail, startTour, endTour, tour, startDaily, reportError, daily: { dayKey, dailySeed, readDaily, dailyStreak }, handArt, describeEvent, chronicle, clearChronicle, chron: ui.chron, settings: SET, handVariants, cardFace };
+  window.__citadel = { get game() { return game; }, render, startFrom, mw, openExpedition, closeExpedition, renderTrail, startTour, endTour, tour, startDaily, reportError, daily: { dayKey, dailySeed, readDaily, dailyStreak }, handArt, describeEvent, chronicle, clearChronicle, chron: ui.chron, settings: SET, handVariants, cardFace, undo };
   if (/selftest/.test(location.hash)) {
     const t = document.createElement('script');
     t.src = 'js/selftest.js';
