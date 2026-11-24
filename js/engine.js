@@ -66,7 +66,7 @@
   const DIFFICULTY = {
     easy:   { needScale: 2.4, timerBonus: 3, calm: 6, gate: 1, siege2: 2, wound: 3 },
     normal: { needScale: 2.98, timerBonus: 2, calm: 3, gate: 2, siege2: 3, wound: 4 },
-    hard:   { needScale: 3.0, timerBonus: 1, calm: 2, gate: 3, siege2: 4, wound: 5 }
+    hard:   { needScale: 3.0, timerBonus: 1, calm: 2, gate: 3, siege2: 4, wound: 5, eclipse: 2 }   // Eclipse only on Hard
   };
 
   // A round has one turn per defender, so a bigger party does more work (and meets more Shadow
@@ -97,7 +97,7 @@
   function buildShadowDeck(s) {
     const d = DIFFICULTY[s.difficulty];
     const counts = { siege1: 8, siege2: d.siege2, dread: 3, wound: d.wound, whisper: 3,
-                     gate: d.gate, calm: d.calm, hand: 3, omen: 2, famine: 2 };
+                     gate: d.gate, calm: d.calm, hand: 3, omen: 2, famine: 2, eclipse: d.eclipse || 0 };
     const deck = [];
     Object.keys(counts).forEach(type => { for (let i = 0; i < counts[type]; i++) deck.push(type); });
     return shuffle(s, deck);
@@ -314,6 +314,15 @@
       case 'omen':
         drawCards(s, s.active, 2); discardToLimit(s, s.active);
         say(s, 'Shadow: a fair omen. ' + defenderDef(s.party[s.active].id).name + ' draws two cards.', 'win'); break;
+      case 'eclipse': {                                  // Hard only: the furthest-along mission loses ground
+        let best = -1;
+        s.quests.forEach((q, i) => { if (q && q.progress > 0 && (best < 0 || q.progress > s.quests[best].progress)) best = i; });
+        if (best >= 0) {
+          const q = s.quests[best]; const lost = Math.min(2, q.progress); q.progress -= lost;
+          say(s, `Shadow: an eclipse. ${questDef(q.id).name} loses ${lost} progress.`, 'lose');
+        } else { addSiege(s, 1); say(s, 'Shadow: an eclipse finds no work to undo. +1 siege engine.', 'lose'); }
+        break;
+      }
       case 'famine':
         s.party.forEach(q => { if (q.alive && q.hand.length) s.whiteDiscard.push(q.hand.shift()); });
         say(s, 'Shadow: famine. Every defender discards a card.', 'lose'); break;

@@ -14,7 +14,7 @@
 
   // ---------- settings (remembered in this browser) ----------
   const SETTINGS_KEY = 'citadel-settings-v1';
-  const SET_DEFAULTS = { volume: 0.7, ambience: true, motion: 'system', text: 'normal', autoView: false };
+  const SET_DEFAULTS = { volume: 0.7, ambience: true, motion: 'system', text: 'normal', autoView: false, cb: false };
   const SET = Object.assign({}, SET_DEFAULTS);
   try { Object.assign(SET, JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}); } catch (e) { /* storage blocked or damaged: use defaults */ }
   function saveSettings() { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(SET)); } catch (e) { /* ignore */ } }
@@ -27,6 +27,7 @@
     html.classList.toggle('reduce-motion', reduced);
     html.classList.toggle('full-motion', SET.motion === 'full');
     html.classList.toggle('large-text', SET.text === 'large');
+    html.classList.toggle('cb', !!SET.cb);
     if (window.CitadelFx && window.CitadelFx.setReduced) window.CitadelFx.setReduced(reduced);
     if (window.CitadelAmbience) window.CitadelAmbience.setReduced(reduced);
     ui.autoExp = !!SET.autoView;
@@ -124,7 +125,7 @@
 
   // ---------- path of destruction + card flights ----------
   // The trail lists every Shadow card drawn this game, so the whole table can see how the ruin is spreading.
-  const TRAIL_TONE = { calm: 'calm', omen: 'calm', famine: 'warn', dread: 'warn', whisper: 'warn', wound: 'warn', hand: 'warn', siege1: 'ruin', siege2: 'ruin', gate: 'ruin', failed: 'ruin' };
+  const TRAIL_TONE = { calm: 'calm', omen: 'calm', famine: 'warn', eclipse: 'ruin', dread: 'warn', whisper: 'warn', wound: 'warn', hand: 'warn', siege1: 'ruin', siege2: 'ruin', gate: 'ruin', failed: 'ruin' };
   const trailName = t => t === 'failed' ? ['Quest Lost', 'A quest ran out of time.'] : SHADOW_INFO[t];
   function renderTrail(s) {
     const box = $('trail');
@@ -173,7 +174,7 @@
     siege1: ['Siege Engine', 'Another engine rolls up to the walls.'], siege2: ['Full Assault', 'Two engines hit the walls at once.'],
     dread: ['Dread', 'Every quest deadline shortens.'], wound: ['Arrow Storm', 'A defender is wounded.'],
     whisper: ['Whisper', 'A card is stolen from the active hand.'], gate: ['The Gate Opens', 'A black sword is seated.'],
-    calm: ['Calm', 'Nothing stirs. For now.'], omen: ['Fair Omen', 'The active defender draws two cards.'], famine: ['Famine', 'Every defender discards a card.'], hand: ['Treachery', 'The Traitor strikes from within.']
+    calm: ['Calm', 'Nothing stirs. For now.'], omen: ['Fair Omen', 'The active defender draws two cards.'], famine: ['Famine', 'Every defender discards a card.'], eclipse: ['Eclipse', 'The furthest-along mission loses 2 progress.'], hand: ['Treachery', 'The Traitor strikes from within.']
   };
 
   function snapshot(s) {
@@ -405,7 +406,7 @@
     // active defender
     const peek = C.nextShadowPeek(s);
     const peekText = { siege1: 'a siege engine', siege2: 'a full assault', dread: 'dread', wound: 'an arrow', whisper: 'a whisper',
-      gate: 'the Gate', calm: 'calm', omen: 'a fair omen', famine: 'famine', hand: 'treachery', reshuffle: 'a reshuffle' };
+      gate: 'the Gate', calm: 'calm', omen: 'a fair omen', famine: 'famine', eclipse: 'an eclipse', hand: 'treachery', reshuffle: 'a reshuffle' };
     let who = '';
     if (online) {
       who = mine() ? '<div class="turn-tag mine">Your turn</div>' : `<div class="turn-tag">Waiting for ${esc(online.names[s.active] || 'a player')}</div>`;
@@ -712,6 +713,12 @@
     Missions.applyProgress(card.querySelector('.mc-svg'), q.progress / q.needed);
     card.querySelector('.mc-prog').textContent = `${q.progress} / ${q.needed}`;
     card.querySelector('.mc-timer b').textContent = q.timer;
+    // mission modifier badge (Blessed / Rich)
+    let mb = card.querySelector('.mc-mod');
+    if (q.mod && C.MODS[q.mod]) {
+      if (!mb) { mb = el('span', 'mc-chip mc-mod'); card.querySelector('.mc-top').appendChild(mb); }
+      mb.className = 'mc-chip mc-mod ' + q.mod; mb.textContent = C.MODS[q.mod].name; mb.title = C.MODS[q.mod].name + ': ' + C.MODS[q.mod].text;
+    } else if (mb) mb.remove();
     card.classList.toggle('urgent', q.timer <= 2);
     card.classList.toggle('selected', ui.selectedSlot === slot);
     const here = s.party.map((p, i) => i).filter(i => s.party[i].loc === slot && s.party[i].alive && !s.party[i].exiled);
@@ -1049,7 +1056,8 @@
       `<h2 id="modalTitle" class="visually-hidden" style="display:none">${esc(def.name)}</h2>${art}` +
       `<p>${esc(def.text)}</p>` +
       `<div class="kv"><span>Favoured suit</span><b>${suitIcon(def.suit)} ${C.SUIT_LABEL[def.suit]} (counts double)</b>` +
-      `<span>Progress</span><b>${q.progress} / ${q.needed}</b><span>Deadline</span><b>${q.timer} round${q.timer === 1 ? '' : 's'}</b></div>` +
+      `<span>Progress</span><b>${q.progress} / ${q.needed}</b><span>Deadline</span><b>${q.timer} round${q.timer === 1 ? '' : 's'}</b>` +
+      (q.mod && C.MODS[q.mod] ? `<span>Twist</span><b><em class="qmod ${q.mod}">${C.MODS[q.mod].name}</em> ${esc(C.MODS[q.mod].text)}</b>` : '') + '</div>' +
       '<div class="modal-actions"><button type="button" data-a="close">Close</button><button type="button" class="ghost" data-a="view">Mission view</button>' +
       (canMove ? '<button type="button" class="primary" data-a="go">Move here</button>' : '') + '</div>');
     $('modalCard').querySelector('[data-a="close"]').onclick = closeModal;
@@ -1193,24 +1201,140 @@
       `${C.count(s, 'black')} black, ${s.siege} siege engines\n` + location.href.split('#')[0] + `#seed=${s.seed}&size=5&diff=normal`;
   }
 
+  // ---------- campaign: five linked games of rising difficulty ----------
+  const CAMPAIGN_KEY = 'citadel-campaign-v1';
+  const CHAPTERS = [
+    { title: 'The First Night', size: 4, diff: 'easy', seed: 1101 },
+    { title: 'Smoke on the Pass', size: 5, diff: 'easy', seed: 1102 },
+    { title: 'The Whispering Court', size: 5, diff: 'normal', seed: 1103 },
+    { title: 'Iron Rain', size: 6, diff: 'normal', seed: 1104 },
+    { title: 'The Last Wall', size: 5, diff: 'hard', seed: 1105 }
+  ];
+  function readCampaign() {
+    try { return Object.assign({ chapter: 0, done: false }, JSON.parse(localStorage.getItem(CAMPAIGN_KEY)) || {}); } catch (e) { return { chapter: 0, done: false }; }
+  }
+  function saveCampaign(c) { try { localStorage.setItem(CAMPAIGN_KEY, JSON.stringify(c)); } catch (e) { /* ignore */ } }
+  function campaignRow() {
+    const c = readCampaign();
+    if (c.done) return '<div class="daily"><b>Campaign</b><span>All five chapters won. A legend of the Citadel.</span><button type="button" data-a="camp">Start the campaign again</button></div>';
+    const ch = CHAPTERS[c.chapter], wards = Math.min(C.WARD_MAX, c.chapter);
+    return `<div class="daily"><b>Campaign: chapter ${c.chapter + 1} of ${CHAPTERS.length}</b>` +
+      `<span>${esc(ch.title)}: ${ch.size} defenders, ${ch.diff}.${wards ? ` Your veterans start with ${wards} ward${wards > 1 ? 's' : ''}.` : ''}</span>` +
+      `<button type="button" data-a="camp">Play chapter ${c.chapter + 1}</button></div>`;
+  }
+  function startCampaign() {
+    let c = readCampaign();
+    if (c.done) { c = { chapter: 0, done: false }; saveCampaign(c); }
+    const ch = CHAPTERS[c.chapter];
+    delete $('modal').dataset.lock; closeModal();
+    leaveOnline(); ui.preview = false;
+    const g = C.createGame({ seed: ch.seed, partySize: ch.size, difficulty: ch.diff });
+    g.campaign = c.chapter + 1;
+    g.ward = Math.min(C.WARD_MAX, c.chapter);            // the perk for every chapter already won
+    startFrom(g);
+    toast(`Campaign chapter ${g.campaign}: ${ch.title}`, 'win');
+    maybeStartTour();
+  }
+  function recordCampaign(s) {
+    if (!s.campaign || !s.over) return '';
+    const c = readCampaign();
+    if (c.done || c.chapter !== s.campaign - 1) return '';
+    if (!s.over.win) return `<p class="record">Campaign chapter ${s.campaign} was lost. Try it again from the setup screen.</p>`;
+    c.chapter++;
+    if (c.chapter >= CHAPTERS.length) { c.done = true; c.chapter = CHAPTERS.length - 1; }
+    saveCampaign(c);
+    return c.done ? '<p class="record"><b>The campaign is won.</b> All five chapters held. A legend of the Citadel.</p>'
+      : `<p class="record">Chapter ${s.campaign} won. Next: <b>${esc(CHAPTERS[c.chapter].title)}</b>, with one more ward for your veterans.</p>`;
+  }
+
+  // ---------- achievements (kept on this device) ----------
+  const ACH_KEY = 'citadel-ach-v1';
+  const ACHIEVEMENTS = [
+    ['first_win', 'First Light', 'Win a game.'],
+    ['hard_win', 'Iron Wall', 'Win on Hard.'],
+    ['untouched', 'Untouched', 'Win without a single wound.'],
+    ['truth', 'Truthseeker', 'Unmask the Traitor.'],
+    ['powers', 'Power Player', 'Trigger 5 suit powers in one game.'],
+    ['swift', 'Lightning Defence', 'Win in 12 rounds or fewer.'],
+    ['full', 'Full Table', 'Win with 7 defenders.'],
+    ['daily', 'Daily Devotion', 'Win a daily challenge.'],
+    ['mastermind', 'Mastermind', 'Win as the Traitor in an online game.'],
+    ['legend', 'Legend of the Citadel', 'Win all five campaign chapters.']
+  ];
+  function readAch() { try { return JSON.parse(localStorage.getItem(ACH_KEY)) || {}; } catch (e) { return {}; } }
+  function checkAchievements(s) {
+    const o = s.over, st = s.stats || {}, have = readAch(), got = [];
+    const traitorMe = !!online && isTraitorMe();
+    const loyalWin = !!o.win && !traitorMe;
+    const test = {
+      first_win: loyalWin, hard_win: loyalWin && s.difficulty === 'hard', untouched: loyalWin && st.wounds === 0,
+      truth: !!s.traitorRevealed && !traitorMe, powers: (st.powers || 0) >= 5, swift: loyalWin && s.round <= 12,
+      full: loyalWin && s.party.length === 7, daily: loyalWin && !!s.daily, mastermind: traitorMe && !o.win,
+      legend: !!s.campaign && readCampaign().done
+    };
+    ACHIEVEMENTS.forEach(([id]) => { if (test[id] && !have[id]) { have[id] = dayKey(); got.push(id); } });
+    if (got.length) { try { localStorage.setItem(ACH_KEY, JSON.stringify(have)); } catch (e) { /* ignore */ } }
+    return got;
+  }
+  function achList(ids, all) {
+    const have = readAch();
+    return '<ul class="ach-list">' + ACHIEVEMENTS.filter(a => all || ids.includes(a[0]))
+      .map(([id, n, t]) => `<li class="${have[id] ? 'got' : ''}"><b>${n}</b> <span>${t}</span></li>`).join('') + '</ul>';
+  }
+  function openAchievements(back) {
+    const have = readAch();
+    openModal('<h2 id="modalTitle">Achievements</h2><p>' + Object.keys(have).length + ' of ' + ACHIEVEMENTS.length + ' earned on this device.</p>' +
+      achList([], true) + '<div class="modal-actions"><button type="button" class="primary" data-a="ok">Close</button></div>');
+    $('modalCard').querySelector('[data-a="ok"]').onclick = back || closeModal;
+  }
+
+  // ---------- end-of-game replay: the Shadow trail, card by card ----------
+  function playReplay(s) {
+    const box = $('modalCard').querySelector('#replay');
+    if (!box) return;
+    clearInterval(playReplay.t);
+    box.innerHTML = '';
+    const items = (s.trail || []).concat([{ r: s.round, type: '__end' }]);
+    let i = 0;
+    const add = () => {
+      const t = items[i++];
+      if (!t) { clearInterval(playReplay.t); return; }
+      const chip = t.type === '__end'
+        ? el('span', 'tchip last ' + (s.over.win ? 'citadel' : 'ruin'), `<b>${s.over.win ? 'The Citadel holds' : 'The Citadel falls'}</b>`)
+        : el('span', 'tchip ' + (TRAIL_TONE[t.type] || 'warn'), `<i>${t.r}</i><b>${esc((trailName(t.type) || [t.type])[0])}</b>`);
+      box.appendChild(chip);
+      box.scrollLeft = box.scrollWidth;
+    };
+    if (reduced || ui.fast) { while (i <= items.length) add(); return; }
+    playReplay.t = setInterval(add, 170);
+  }
+
   function showEnd() {
     const s = game, o = s.over;
     endTour();
     recordResult(s);
     recordDaily(s);
+    if (!s.endNotes) {                                   // once per game, even if the end screen is shown again
+      const camp = recordCampaign(s);
+      s.endNotes = { camp, ach: checkAchievements(s) };
+    }
+    const notes = s.endNotes.camp + (s.endNotes.ach.length ? '<h3>Achievement unlocked</h3>' + achList(s.endNotes.ach) : '');
+    const replay = '<h3>The siege, replayed</h3><div class="replay" id="replay"></div>';
     const stats = `<div class="kv"><span>Rounds</span><b>${s.round}</b><span>White swords</span><b>${C.count(s, 'white')}</b>` +
       `<span>Black swords</span><b>${C.count(s, 'black')}</b><span>Siege engines</span><b>${s.siege}</b>` +
       `<span>The Traitor was</span><b>${esc(dname(s.traitor))}${s.traitorRevealed ? ' (unmasked)' : ' (never found)'}</b>` +
       `<span>Seed</span><b>${s.seed}</b></div>` + highlights(s) + statsLine();
     const dailyNote = s.daily ? `<p class="record">Daily challenge ${esc(s.daily)}: streak <b>${dailyStreak(readDaily())}</b> day${dailyStreak(readDaily()) === 1 ? '' : 's'}.</p>` : '';
     $('modal').dataset.lock = '1';
-    openModal(`<h2 id="modalTitle">${o.win ? 'Victory' : 'Defeat'}</h2><p>${esc(o.reason)}</p>${stats}${dailyNote}` +
-      '<div class="modal-actions">' + (online ? '' : `<button type="button" class="ghost" data-a="share">${s.daily ? 'Copy result' : 'Copy challenge link'}</button>`) +
+    openModal(`<h2 id="modalTitle">${o.win ? 'Victory' : 'Defeat'}</h2><p>${esc(o.reason)}</p>${notes}${replay}${stats}${dailyNote}` +
+      '<div class="modal-actions"><button type="button" class="ghost" data-a="replay">Replay</button>' + (online ? '' : `<button type="button" class="ghost" data-a="share">${s.daily ? 'Copy result' : 'Copy challenge link'}</button>`) +
       '<button type="button" class="ghost" data-a="view">View board</button><button type="button" class="primary" data-a="again">' +
       (online ? 'Leave game' : 'Play again') + '</button></div>');
     const box = $('modalCard');
     box.querySelector('[data-a="view"]').onclick = () => { delete $('modal').dataset.lock; closeModal(); };
     box.querySelector('[data-a="again"]').onclick = () => { delete $('modal').dataset.lock; leaveOnline(); ui.preview = false; openSetup(); };
+    box.querySelector('[data-a="replay"]').onclick = () => playReplay(s);
+    playReplay(s);
     const share = box.querySelector('[data-a="share"]');
     if (share) share.onclick = e => {
       const text = s.daily ? dailyResultText(s) : shareUrl(s), b = e.currentTarget;
@@ -1232,7 +1356,7 @@
       '<h3>Difficulty</h3><div class="choice-row" id="diffRow">' + diffs + '</div>' +
       '<h3>Seed <small style="text-transform:none;letter-spacing:0;color:var(--muted)">(optional: same seed = same game)</small></h3>' +
       '<input id="seedInput" class="seed-input" inputmode="numeric" maxlength="10" placeholder="random" aria-label="Game seed">' +
-      statsLine() + dailyRow() +
+      statsLine() + dailyRow() + campaignRow() +
       '<div class="modal-actions">' +
       '<button type="button" class="ghost" data-a="rules">How to play</button>' +
       '<button type="button" class="ghost" data-a="practice" title="A short easy game with a coach that tells you what to do">Practice (guided)</button>' +
@@ -1246,6 +1370,7 @@
     card.querySelector('[data-a="online"]').onclick = () => { delete $('modal').dataset.lock; openOnlineMenu(); };
     card.querySelector('[data-a="daily"]').onclick = startDaily;
     card.querySelector('[data-a="practice"]').onclick = startPractice;
+    card.querySelector('[data-a="camp"]').onclick = startCampaign;
     const cont = card.querySelector('[data-a="cont"]');
     if (cont) cont.onclick = () => { delete $('modal').dataset.lock; closeModal(); leaveOnline(); ui.preview = false; startFrom(saved); };
     card.querySelector('[data-a="start"]').onclick = () => {
@@ -1296,15 +1421,16 @@
       '<div class="set-row"><label for="setMotion">Animation</label><select id="setMotion" class="seed-input"><option value="system">Follow my device</option><option value="reduce">Reduce motion</option><option value="full">Full motion</option></select></div>' +
       '<label class="check"><input type="checkbox" id="setAuto"> Open the mission view automatically (expedition view)</label>' +
       '<h3>Text</h3>' +
-      '<div class="set-row"><label for="setCb">Colour-blind friendly colours <small>(coming soon)</small></label><input type="checkbox" id="setCb" disabled></div>' +
+      '<label class="check"><input type="checkbox" id="setCb"> Colour-blind friendly colours</label>' +
       '<div class="set-row"><label for="setText">Side panel text</label><select id="setText" class="seed-input"><option value="normal">Normal</option><option value="large">Large</option></select></div>' +
-      '<div class="modal-actions"><button type="button" class="ghost" data-a="tour">Guided tour</button><button type="button" class="ghost" data-a="reset">Reset to defaults</button><button type="button" class="primary" data-a="done">Done</button></div>');
+      '<div class="modal-actions"><button type="button" class="ghost" data-a="ach">Achievements</button><button type="button" class="ghost" data-a="tour">Guided tour</button><button type="button" class="ghost" data-a="reset">Reset to defaults</button><button type="button" class="primary" data-a="done">Done</button></div>');
     const box = $('modalCard');
     const q = s => box.querySelector(s);
     const sync = () => {
       q('#setSfx').checked = !Snd.isMuted(); q('#setAmb').checked = SET.ambience;
       q('#setVol').value = Math.round(SET.volume * 100); q('#setVolOut').textContent = Math.round(SET.volume * 100) + '%';
       q('#setMotion').value = SET.motion; q('#setAuto').checked = SET.autoView; q('#setText').value = SET.text;
+      q('#setCb').checked = !!SET.cb;
     };
     sync();
     const change = () => { saveSettings(); applySettings(); };
@@ -1315,9 +1441,11 @@
     q('#setMotion').onchange = e => { SET.motion = e.target.value; change(); };
     q('#setAuto').onchange = e => { SET.autoView = e.target.checked; change(); };
     q('#setText').onchange = e => { SET.text = e.target.value; change(); };
+    q('#setCb').onchange = e => { SET.cb = e.target.checked; change(); };
     q('[data-a="reset"]').onclick = () => { Object.assign(SET, SET_DEFAULTS); Snd.setMuted(false); syncSoundButton(); change(); sync(); };
     q('[data-a="done"]').onclick = closeModal;
     q('[data-a="tour"]').onclick = () => { closeModal(); if (window.__startTour) window.__startTour(); };
+    q('[data-a="ach"]').onclick = () => openAchievements(openSettings);
   }
   // ---------- guided tour: a short spotlight walkthrough for new players ----------
   const TOUR_KEY = 'citadel-tour-done';
@@ -1800,7 +1928,7 @@
   }
 
   // test hook
-  window.__citadel = { get game() { return game; }, render, startFrom, mw, openExpedition, closeExpedition, renderTrail, startTour, endTour, tour, startDaily, reportError, daily: { dayKey, dailySeed, readDaily, dailyStreak }, handArt, describeEvent, chronicle, clearChronicle, chron: ui.chron, settings: SET, handVariants, cardFace, undo, startPractice };
+  window.__citadel = { get game() { return game; }, render, startFrom, mw, openExpedition, closeExpedition, renderTrail, startTour, endTour, tour, startDaily, reportError, daily: { dayKey, dailySeed, readDaily, dailyStreak }, handArt, describeEvent, chronicle, clearChronicle, chron: ui.chron, settings: SET, handVariants, cardFace, undo, startPractice, startCampaign, readCampaign, readAch, checkAchievements, openAchievements };
   if (/selftest/.test(location.hash)) {
     const t = document.createElement('script');
     t.src = 'js/selftest.js';

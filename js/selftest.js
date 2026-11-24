@@ -551,6 +551,24 @@
       check('the path of destruction lists the Shadow cards drawn', !!tr && tr.querySelectorAll('.tchip:not(.citadel)').length === Math.min(24, n) && n >= 1);
       check('the path ends at the Citadel', !!tr.querySelector('.tchip.citadel'));
       check('the newest Shadow card is marked', !!tr.querySelector('.tchip.last'));
+    }    // campaign, achievements, colour-blind mode
+    { const H5 = window.__citadel;
+      try { localStorage.removeItem('citadel-campaign-v1'); localStorage.removeItem('citadel-ach-v1'); } catch (e) { /* ignore */ }
+      H5.startCampaign();
+      const g5 = H5.game;
+      check('the campaign starts at chapter 1 (4 defenders, easy)', g5.campaign === 1 && g5.party.length === 4 && g5.difficulty === 'easy');
+      g5.over = { win: true, reason: 'test' }; g5.stats.wounds = 0; g5.round = 9;
+      H5.render();
+      await new Promise(r => setTimeout(r, 1300));
+      check('winning a chapter advances the campaign', H5.readCampaign().chapter === 1);
+      const ach = H5.readAch();
+      check('a win earns First Light, Untouched and Lightning Defence', !!ach.first_win && !!ach.untouched && !!ach.swift, JSON.stringify(ach));
+      check('the end screen shows the replay and unlocked achievements', !!document.querySelector('#replay .tchip') && /Achievement unlocked/.test(document.getElementById('modalCard').textContent));
+      const s2 = H5.settings; s2.cb = true; document.documentElement.classList.toggle('cb', true);
+      check('colour-blind mode changes the suit colours', getComputedStyle(document.documentElement).getPropertyValue('--blade').trim().toUpperCase() === '#E69F00');
+      s2.cb = false; document.documentElement.classList.toggle('cb', false);
+      try { localStorage.removeItem('citadel-campaign-v1'); localStorage.removeItem('citadel-ach-v1'); } catch (e) { /* ignore */ }
+      document.querySelectorAll('#modal [data-a="view"]').forEach(b => b.click());
     }    // guided practice game
     { window.__citadel.startPractice();
       const cb = document.getElementById('coach');

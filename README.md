@@ -207,6 +207,14 @@ Things to know:
 - The host must stay in the game. If the host leaves, the game ends for everyone. There is no reconnecting after a drop.
 - Hands are visible to all players (the active defender's hand is always shown).
 
+### Campaign, achievements and replay
+- **Campaign:** five linked chapters of rising difficulty (setup screen). Each chapter you win gives your veterans one more starting ward (up to two). Progress is kept on this device.
+- **Achievements:** ten goals such as Untouched (win without a wound), Iron Wall (win on Hard) and Mastermind (win as the online Traitor). See them under **Settings > Achievements**.
+- **Replay:** the end screen replays the Shadow trail card by card.
+- **Eclipse** is a Hard-only Shadow card: the furthest-along mission loses 2 progress.
+- **Colour-blind colours** (Settings) switch suits, danger and roles to a palette that stays distinct for red-green colour blindness.
+- Mission cards show their **Blessed** / **Rich** twist, and enlarge when you hover them in the side rail.
+
 ### Less scrolling
 On a desktop screen the board is sized to fit your window height, so the board and the Shadow trail are visible without scrolling. Defenders, Rumors and the Chronicle share one tabbed panel (a red dot on **Rumors** means a new sabotage rumor), and the mission cards sit in a rail between the board and the side panel (on screens at least 1360 pixels wide; below that they go under the board). The painted frames on the board carry no labels; click a frame or a mission card to select it.
 
@@ -215,7 +223,7 @@ On a desktop screen the board is sized to fit your window height, so the board a
 - **Undo** (offline only, key **U**) takes back your last action this turn. It is not available after End turn, for accusations, or online.
 - **Mission modifiers:** a mission can be **Blessed** (pairs add progress) or **Rich** (needs 2 more, everyone draws 2).
 - **Shadow cards** now include Fair Omen (draw 2) and Famine (everyone discards one).
-- **Feedback** and **colour-blind colours** are placeholders for now.
+- **Feedback** is a placeholder until a form address is set in `FEEDBACK_URL` (`js/ui.js`).
 
 ### Daily challenge
 The setup screen has a **Daily challenge**: everyone gets the same game each calendar day (5 defenders, Normal), seeded
