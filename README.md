@@ -264,6 +264,10 @@ If a friend's connection drops, a bot plays their seat. The host presses **Invit
 
 Add `#seed=42` to the URL to start a reproducible game (useful for bug reports).
 
+## Releasing a change
+
+`index.html` loads the CSS and scripts with `?v=...` (RELEASE VERSION). Change that value whenever you publish, so browsers fetch the new files instead of a cached copy (GitHub Pages lets browsers cache for 10 minutes).
+
 ## Tests
 
 All suites run headless in Edge or Chrome, with no Node or server:
