@@ -257,6 +257,7 @@ test('suggest always returns a legal move (100 seeded games played only by hints
       else if (h.type === 'accuse') r = C.accuse(s, h.target);
       else if (h.type === 'tend') r = C.tend(s, h.cards, h.target);
       else if (h.type === 'sortie') r = C.sortie(s, h.cards);
+      else if (h.type === 'feat') r = C.feat(s, h.arg);
       else r = C.endTurn(s);
       steps++;
       ok(r.ok, `seed ${seed}: hint ${h.type} was rejected: ${r.msg}`);
@@ -329,7 +330,8 @@ test('suit powers: a pair of one suit triggers its power, singles do not', () =>
   { const { s, a } = setup(75); const ids = give(s, a, ['boot', 'boot']); const left = s.actionsLeft; C.contribute(s, ids); eq(s.actionsLeft, left, 'a Boot pair costs no action');
     s.party[a].hand = [{ id: 950, suit: 'boot' }, { id: 951, suit: 'boot' }]; C.contribute(s, [950, 951]); eq(s.actionsLeft, left - 1, 'Swift works only once per turn'); }
   { const { s, a } = setup(76); const ids = give(s, a, ['blade', 'blade', 'blade']); ok(C.suitPowers(s, a, ids).length === 1, 'three of a suit is still one power'); }
-  { const { s, a } = setup(77); s.ward = 5; const ids = give(s, a, ['shield', 'shield']); C.contribute(s, ids); ok(s.ward <= C.WARD_MAX, 'wards are capped'); }
+  { const { s, a } = setup(77); s.ward = 2; const ids = give(s, a, ['shield', 'shield']); C.contribute(s, ids); eq(s.ward, C.WARD_MAX, 'a Shield pair cannot raise wards past the limit'); }
+  { const { s, a } = setup(78); s.ward = 3; const ids = give(s, a, ['shield', 'shield']); C.contribute(s, ids); eq(s.ward, 3, 'but never lowers a Wall of Shields'); }
 });
 
 test('a ward absorbs exactly one wound', () => {
@@ -509,6 +511,31 @@ test('the Traitor\'s last betrayal: hidden at the moment of victory, they break 
   t.party[acc].hand = [{ id: 971, suit: C.questDef(q2.id).suit }]; t.actionsLeft = 1; C.contribute(t, [971]);
   ok(t.over && t.over.win, 'with the Traitor unmasked, the 7th white sword wins');
 });
+test('chosen defenders keep their seats; the rest are dealt at random; no picks deals as before', () => {
+  const s = C.createGame({ seed: 300, partySize: 4, picks: ['shield', null, 'mage'] });
+  eq(s.party[0].id, 'shield'); eq(s.party[2].id, 'mage');
+  eq(new Set(s.party.map(p => p.id)).size, 4, 'no defender twice');
+  const d = C.createGame({ seed: 300, partySize: 4, picks: ['shield', 'shield', 'nobody'] });
+  eq(d.party[0].id, 'shield'); ok(d.party[1].id !== 'shield', 'a defender already taken goes to the first seat that asked');
+  eq(d.party.filter(p => p.id === 'shield').length, 1);
+  eq(JSON.stringify(C.createGame({ seed: 301, partySize: 5 })), JSON.stringify(C.createGame({ seed: 301, partySize: 5, picks: [] })), 'no picks is the plain random deal');
+  ok(C.DEFENDERS.every(d => d.feat && d.feat.name && d.title && d.bio), 'every defender has a title, a bio and a Feat');
+});
+test('Feats: free, once per game, and each does its deed', () => {
+  const at = (id, size) => { const s = C.createGame({ seed: 310, partySize: size || 7 }); s.over = null; s.active = s.party.findIndex(p => p.id === id); s.actionsLeft = 2; return s; };
+  { const s = at('veyra'); s.party.forEach(p => { p.hp = 1; }); const acts = s.actionsLeft;
+    ok(C.feat(s).ok, 'Rally'); ok(s.party.every(p => p.hp === 2), 'everyone heals 1'); eq(s.actionsLeft, acts, 'free');
+    ok(!C.feat(s).ok, 'only once'); ok(s.party[s.active].featUsed); }
+  { const s = at('veyra'); s.party.forEach(p => { p.hp = p.maxHp; }); ok(!C.feat(s).ok, 'Rally needs someone wounded'); ok(!s.party[s.active].featUsed, 'a refused Feat is not spent'); }
+  { const s = at('harren'); const n = s.party.map(p => p.hand.length); ok(C.feat(s).ok); ok(s.party.every((p, i) => p.hand.length === n[i] + 1), 'everyone draws one'); }
+  { const s = at('elira'); const top = s.shadowDeck[s.shadowDeck.length - 1]; ok(C.feat(s).ok); eq(s.shadowDeck[0], top, 'the coming card goes to the bottom'); }
+  { const s = at('berserker'); s.siege = 5; s.party[s.active].hp = 3; ok(C.feat(s).ok); eq(s.siege, 3); eq(s.party[s.active].hp, 2);
+    const t = at('berserker'); t.siege = 5; t.party[t.active].hp = 1; ok(!C.feat(t).ok, 'not from his last health'); }
+  { const s = at('mage'); ok(C.feat(s).ok); s.shadowDeck.push('gate'); const b = C.count(s, 'black'); s.party.forEach(p => { p.stunned = false; });
+    C.endTurn(s); eq(C.count(s, 'black'), b, 'the Gate card was unmade'); eq(s.trail[s.trail.length - 1].type, 'dispelled'); eq(s.dispel, false, 'only one card'); }
+  { const s = at('cavalry'); const t0 = s.quests[2].timer; ok(!C.feat(s, 9).ok, 'needs a mission'); ok(C.feat(s, 2).ok); eq(s.quests[2].timer, t0 + 2); }
+  { const s = at('shield'); s.ward = 1; ok(C.feat(s).ok); eq(s.ward, C.WARD_MAX + 1, 'past the usual limit, by one'); }
+});
 test('mage sees next shadow card, others do not', () => {
   const s = C.createGame({ seed: 5, partySize: 7 });
   ok(C.nextShadowPeek(s) !== null);
@@ -528,7 +555,7 @@ function bot(s) {
       if (top.length === 1 && C.accuse(s, top[0][1]).ok) continue;
     }
     if (p.hp <= 1 && p.loc === C.CITADEL && C.rest(s).ok) continue;
-    { const h = C.suggest(s); if (h && h.type === 'tend' && C.tend(s, h.cards, h.target).ok) continue; if (h && h.type === 'sortie' && C.sortie(s, h.cards).ok) continue; }
+    { const h = C.suggest(s); if (h && h.type === 'feat' && C.feat(s, h.arg).ok) continue; if (h && h.type === 'tend' && C.tend(s, h.cards, h.target).ok) continue; if (h && h.type === 'sortie' && C.sortie(s, h.cards).ok) continue; }
     const here = p.loc >= 0 ? s.quests[p.loc] : null;
     const best = (slot) => {
       const q = s.quests[slot]; if (!q) return null;

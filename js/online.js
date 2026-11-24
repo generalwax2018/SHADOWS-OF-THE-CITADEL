@@ -12,7 +12,7 @@
 
   const ACTIONS = {
     move: 1, contribute: 1, drawAction: 0, rest: 0, accuse: 1, give: 2, endTurn: 0, sabotageAction: 1, discard: 1,
-    sortie: 1, tend: 2, pressOn: 0
+    sortie: 1, tend: 2, pressOn: 0, feat: 1
   };
   // Actions whose effect only the actor may see: everyone else gets no message at all, so not even the
   // arrival of a state update hints that something happened.
@@ -35,6 +35,9 @@
     return args.every(Number.isInteger);
   }
 
+  // A defender a player asked to play, or null for "deal me one".
+  function cleanPick(id) { return C.DEFENDERS.some(d => d.id === id) ? id : null; }
+
   function cleanName(n, fallback) {
     n = String(n == null ? '' : n).replace(/[^\w .'-]/g, '').trim().slice(0, 16);
     return n || fallback;
@@ -51,7 +54,7 @@
       this.botDelay = opts.botDelay == null ? BOT_DELAY : opts.botDelay;
       this.seats = [];
       for (let i = 0; i < this.size; i++) {
-        this.seats.push(i === 0 ? { kind: 'host', name: cleanName(opts.name, 'Host'), peer: null } : { kind: 'bot', name: 'Bot ' + i, peer: null });
+        this.seats.push(i === 0 ? { kind: 'host', name: cleanName(opts.name, 'Host'), peer: null, pick: cleanPick(opts.pick) } : { kind: 'bot', name: 'Bot ' + i, peer: null });
       }
       this.game = null;
       this.botTimer = null;
@@ -62,7 +65,9 @@
     on(evt, fn) { this.ev.on(evt, fn); return this; }
 
     names() { return this.seats.map(s => s.name); }
-    lobby() { return this.seats.map(s => ({ kind: s.kind === 'pending' ? 'bot' : s.kind, name: s.name })); }
+    lobby() { return this.seats.map(s => ({ kind: s.kind === 'pending' ? 'bot' : s.kind, name: s.name, pick: s.kind === 'host' || s.kind === 'human' ? s.pick || null : null })); }
+    // Who gets which defender: a choice already made by an earlier seat wins; anyone left gets a random one.
+    picks() { return this.seats.map(s => (s.kind === 'host' || s.kind === 'human') ? s.pick || null : null); }
     // The seat the next friend should take. Mid-game, a seat whose player left comes first.
     openSeat() {
       if (this.game) { const d = this.seats.findIndex(s => s.kind === 'bot' && s.dropped); if (d >= 0) return d; }
@@ -142,6 +147,7 @@
         if (!st || st.named) return;                // one name per connection: no renaming (or broadcast spam) mid-game
         st.named = true;
         st.name = cleanName(m.name, 'Player ' + (seat + 1));
+        if (!this.game) st.pick = cleanPick(m.pick);       // a defender can only be chosen before the game starts
         this.ev.emit('lobby', this.lobby());
         if (this.game) this.broadcast(); else this._sendLobby();
       } else if (m.t === 'act') {
@@ -179,7 +185,7 @@
 
     start() {
       if (this.game) return this.game;
-      const g = C.createGame({ seed: this.seed, partySize: this.size, difficulty: this.difficulty });
+      const g = C.createGame({ seed: this.seed, partySize: this.size, difficulty: this.difficulty, picks: this.picks() });
       g.traitorHuman = this.seats[g.traitor].kind !== 'bot';
       this.game = g;
       this.seats.forEach((s, i) => {
@@ -249,6 +255,7 @@
         else if (h.type === 'accuse') r = C.accuse(g, h.target);
         else if (h.type === 'tend') r = C.tend(g, h.cards, h.target);
         else if (h.type === 'sortie') r = C.sortie(g, h.cards);
+        else if (h.type === 'feat') r = C.feat(g, h.arg);
       }
       // Out of actions, nothing useful to do, or the suggestion was refused: pass the turn.
       if (!g.over && (!h || h.type === 'end' || !r.ok || g.actionsLeft <= 0)) C.endTurn(g);
@@ -266,6 +273,7 @@
     constructor(opts) {
       opts = opts || {};
       this.name = cleanName(opts.name, 'Player');
+      this.pick = cleanPick(opts.pick);
       this.lanOnly = !!opts.lanOnly;
       this.role = 'guest';
       this.seat = -1;
@@ -282,7 +290,7 @@
     async join(inviteCode) {
       const peer = new N.Peer({ lanOnly: this.lanOnly });
       this.peer = peer;
-      peer.onopen = () => { this.connected = true; peer.send({ t: 'hello', name: this.name }); this.ev.emit('connected'); };
+      peer.onopen = () => { this.connected = true; peer.send({ t: 'hello', name: this.name, pick: this.pick }); this.ev.emit('connected'); };
       peer.onmessage = m => this._message(m);
       peer.onclose = () => { this.connected = false; this.ev.emit('closed'); };
       try { return await peer.acceptOffer(inviteCode); } catch (e) { peer.close(); throw e; }

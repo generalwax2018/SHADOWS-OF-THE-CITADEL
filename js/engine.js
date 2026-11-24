@@ -17,21 +17,37 @@
   const CITADEL = -1;        // location id; 0..6 are quest slots
   const MAX_CONTRIBUTE = 3;
 
+  // Each defender has a passive power (always on) and a Feat: a free, once-per-game deed that can turn a bad moment.
+  // `feat.target` says what the Feat needs chosen: 'slot' (a mission) or nothing.
   const DEFENDERS = [
-    { id: 'veyra',     name: 'Captain Veyra',   hp: 3, img: 'defender-veyra',
-      ability: 'Rallying Cry: adds +1 progress whenever she contributes to a quest.' },
-    { id: 'harren',    name: 'Lord Harren',     hp: 3, img: 'defender-harren',
-      ability: 'Quartermaster: draws 3 cards instead of 2.' },
-    { id: 'elira',     name: 'Scout Elira',     hp: 3, img: 'defender-elira',
-      ability: 'Pathfinder: moving costs no action.' },
-    { id: 'berserker', name: 'The Berserker',   hp: 3, img: 'defender-berserker',
-      ability: 'Fury: Blade cards add +1 progress each.' },
-    { id: 'mage',      name: 'Mage-Knight',     hp: 3, img: 'defender-mage',
-      ability: 'Foresight: glimpses the next Shadow card.' },
-    { id: 'cavalry',   name: 'Cavalry Captain', hp: 3, img: 'defender-cavalry',
-      ability: 'Swift Charge: takes 3 actions each turn.' },
-    { id: 'shield',    name: 'Shield-Bearer',   hp: 4, img: 'defender-shield',
-      ability: 'Bulwark: has 4 health instead of 3.' }
+    { id: 'veyra',     name: 'Captain Veyra',   hp: 3, img: 'defender-veyra', title: 'Captain of the Watch', role: 'Leader',
+      ability: 'Rallying Cry: adds +1 progress whenever she contributes to a quest.',
+      feat: { id: 'rally', name: 'Rally the Line', text: 'Every defender still standing heals 1.' },
+      bio: 'She has held the gate through three sieges and lost no one she could reach. The garrison follows her voice before her orders.' },
+    { id: 'harren',    name: 'Lord Harren',     hp: 3, img: 'defender-harren', title: 'Keeper of the Stores', role: 'Supply',
+      ability: 'Quartermaster: draws 3 cards instead of 2.',
+      feat: { id: 'requisition', name: 'Open the Vaults', text: 'Every defender still standing draws a card.' },
+      bio: 'Old, careful and rich. Every barrel in the Citadel is in his ledger, and he has been saving the last vault for a day like this.' },
+    { id: 'elira',     name: 'Scout Elira',     hp: 3, img: 'defender-elira', title: 'Eyes of the Citadel', role: 'Scout',
+      ability: 'Pathfinder: moving costs no action.',
+      feat: { id: 'scout', name: 'Clear the Road', text: 'The next Shadow card is revealed and sent to the bottom of the deck.' },
+      bio: 'Nobody hears her leave and nobody sees her return. She knows the enemy\'s march before their captains do.' },
+    { id: 'berserker', name: 'The Berserker',   hp: 3, img: 'defender-berserker', title: 'Wrath of the North', role: 'Fighter',
+      ability: 'Fury: Blade cards add +1 progress each.',
+      feat: { id: 'warcry', name: 'Blood and Fire', text: 'Two siege engines are torn down. He loses 1 health (not from his last).' },
+      bio: 'He came over the mountains alone, asking only for the front of the line. The siege crews have learned his name.' },
+    { id: 'mage',      name: 'Mage-Knight',     hp: 3, img: 'defender-mage', title: 'Sworn of the Old Order', role: 'Seer',
+      ability: 'Foresight: glimpses the next Shadow card.',
+      feat: { id: 'dispel', name: 'Unmake', text: 'The next Shadow card is cancelled: it is drawn and has no effect.' },
+      bio: 'Half scholar, half soldier, wholly unsettling. The runes on that armour were not put there by any smith.' },
+    { id: 'cavalry',   name: 'Cavalry Captain', hp: 3, img: 'defender-cavalry', title: 'Spur of the Realm', role: 'Rider',
+      ability: 'Swift Charge: takes 3 actions each turn.',
+      feat: { id: 'relief', name: 'Relief Ride', text: 'Choose a mission: it gains 2 rounds.', target: 'slot' },
+      bio: 'Where the riders go, the line holds a little longer. He has never once arrived late, and does not mean to start.' },
+    { id: 'shield',    name: 'Shield-Bearer',   hp: 4, img: 'defender-shield', title: 'The Unbroken', role: 'Guardian',
+      ability: 'Bulwark: has 4 health instead of 3.',
+      feat: { id: 'bulwark', name: 'Wall of Shields', text: 'Raise 2 wards (up to 3 held, one past the usual limit).' },
+      bio: 'Patient as stone. Others win the glory; the Shield-Bearer makes sure they live to enjoy it.' }
   ];
 
   // needed = progress to complete, timer = rounds before it fails
@@ -73,9 +89,9 @@
   // cards) before each deadline. These multipliers on needScale keep 3 to 7 defenders comparably difficult.
   // They are fitted per difficulty by bot simulation (tests.html prints the resulting win rates).
   const SIZE_NEED = {
-    easy:   { 3: 0.52, 4: 0.50, 5: 0.73, 6: 1.18, 7: 1.42 },    // bot wins about 88%
-    normal: { 3: 0.61, 4: 0.75, 5: 0.96, 6: 1.12, 7: 1.26 },    // about 45%
-    hard:   { 3: 0.63, 4: 0.84, 5: 0.99, 6: 1.12, 7: 1.26 }     // about 20%
+    easy:   { 3: 0.51, 4: 0.49, 5: 0.76, 6: 1.18, 7: 1.54 },    // bot wins about 88%
+    normal: { 3: 0.63, 4: 0.77, 5: 1.01, 6: 1.21, 7: 1.37 },    // about 45%
+    hard:   { 3: 0.65, 4: 0.86, 5: 1.05, 6: 1.21, 7: 1.37 }     // about 20%
   };
 
   // ---------- randomness ----------
@@ -126,12 +142,20 @@
       lastShadow: null, log: [], trail: [], ward: 0
     };
 
-    // party
-    const picks = shuffle(s, DEFENDERS.map((_, i) => i)).slice(0, size);
-    picks.forEach(i => {
+    // party: chosen defenders keep their seat (opts.picks[i] is seat i's choice, or null); the rest are random.
+    // With no picks this is exactly the old random deal, so existing seeds and challenge links still match.
+    const pool = shuffle(s, DEFENDERS.map((_, i) => i));
+    const chosen = new Array(size).fill(-1);
+    (Array.isArray(opts.picks) ? opts.picks : []).slice(0, size).forEach((id, seat) => {
+      const k = DEFENDERS.findIndex(d => d.id === id);
+      if (k >= 0 && !chosen.includes(k)) chosen[seat] = k;
+    });
+    const rest = pool.filter(k => !chosen.includes(k));
+    for (let i = 0; i < size; i++) if (chosen[i] < 0) chosen[i] = rest.shift();
+    chosen.forEach(i => {
       const d = DEFENDERS[i];
       s.party.push({ id: d.id, hp: d.hp, maxHp: d.hp, loc: CITADEL, hand: [],
-                     alive: true, exiled: false, stunned: false });
+                     alive: true, exiled: false, stunned: false, featUsed: false });
     });
     s.traitor = randInt(s, s.party.length);
     s.stats = { progress: s.party.map(() => 0), done: 0, failed: 0, wounds: 0 };   // for the end-of-game highlights
@@ -387,8 +411,74 @@
     const type = s.shadowDeck.pop();
     s.shadowDiscard.push(type);
     s.lastShadow = type;
+    if (s.dispel) {                                    // the Mage-Knight's Unmake: this card is drawn and does nothing
+      s.dispel = false;
+      if (s.trail) s.trail.push({ r: s.round, type: 'dispelled' });
+      say(s, `Shadow: ${SHADOW_NAME[type] || type}, but the Mage-Knight's working unmakes it. Nothing happens.`, 'win');
+      return;
+    }
     if (s.trail) s.trail.push({ r: s.round, type });   // public history: the path of destruction
     resolveShadow(s, type);
+  }
+
+  const SHADOW_NAME = { siege1: 'Siege Engine', siege2: 'Full Assault', dread: 'Dread', wound: 'Arrow Storm', whisper: 'Whisper',
+    gate: 'The Gate Opens', calm: 'Calm', omen: 'Fair Omen', famine: 'Famine', eclipse: 'Eclipse', hand: 'Treachery' };
+
+  // ---------- Feats: each defender's once-per-game deed. Free (no action), on your own turn. ----------
+  function feat(s, arg) {
+    if (s.over) return fail('The game is over.');
+    const idx = s.active, p = s.party[idx], d = defenderDef(p.id), f = d.feat;
+    if (!p.alive || p.exiled) return fail('Only a defender still standing can do that.');
+    if (p.featUsed) return fail(`${f.name} has already been used this game.`);
+    const living = livingIdx(s);
+    switch (f.id) {
+      case 'rally': {
+        const hurt = living.filter(i => s.party[i].hp < s.party[i].maxHp);
+        if (!hurt.length) return fail('No one is wounded.');
+        hurt.forEach(i => { s.party[i].hp++; });
+        say(s, `${d.name}: ${f.name}! ${hurt.length} defender${hurt.length > 1 ? 's' : ''} recover 1 health.`, 'win');
+        break;
+      }
+      case 'requisition':
+        living.forEach(i => drawCards(s, i, 1));
+        say(s, `${d.name}: ${f.name}! Every defender draws a card.`, 'win');
+        break;
+      case 'scout': {
+        if (!s.shadowDeck.length) return fail('The Shadow deck is empty; it reshuffles next turn.');
+        const top = s.shadowDeck.pop();
+        s.shadowDeck.unshift(top);
+        say(s, `${d.name}: ${f.name}! The coming ${SHADOW_NAME[top] || top} is turned aside to the bottom of the deck.`, 'win');
+        break;
+      }
+      case 'warcry':
+        if (s.siege <= 0) return fail('There are no siege engines to tear down.');
+        if (p.hp <= 1) return fail('Too weak for that.');
+        p.hp--;
+        addSiege(s, -2);
+        say(s, `${d.name}: ${f.name}! Two siege engines are torn down (${p.hp}/${p.maxHp}).`, 'win');
+        break;
+      case 'dispel':
+        if (s.dispel) return fail('The next Shadow card is already unmade.');
+        s.dispel = true;
+        say(s, `${d.name}: ${f.name}! The next Shadow card will come to nothing.`, 'win');
+        break;
+      case 'relief': {
+        const q = Number.isInteger(arg) && arg >= 0 && arg < SLOTS ? s.quests[arg] : null;
+        if (!q) return fail('Choose a mission.');
+        q.timer += 2;
+        say(s, `${d.name}: ${f.name}! ${questDef(q.id).name} gains 2 rounds.`, 'win');
+        break;
+      }
+      case 'bulwark':
+        if ((s.ward || 0) >= WARD_MAX + 1) return fail('The wards are already at their strongest.');
+        s.ward = Math.min(WARD_MAX + 1, (s.ward || 0) + 2);
+        say(s, `${d.name}: ${f.name}! Wards raised (${s.ward}).`, 'win');
+        break;
+      default: return fail('Unknown feat.');
+    }
+    p.featUsed = true;
+    if (s.stats) s.stats.feats = (s.stats.feats || 0) + 1;
+    return { ok: true };
   }
 
   function nextShadowPeek(s) {
@@ -556,7 +646,7 @@
       if (s.stats) s.stats.powers = (s.stats.powers || 0) + 1;
       const pw = POWERS[su];
       if (su === 'blade') { if (s.siege > 0) addSiege(s, -1); say(s, `Blade pair, ${pw.name}: the siege falls back.`, 'win'); }
-      else if (su === 'shield') { s.ward = Math.min(WARD_MAX, (s.ward || 0) + 1); say(s, `Shield pair, ${pw.name}: a ward is raised (${s.ward}).`, 'win'); }
+      else if (su === 'shield') { s.ward = Math.max(s.ward || 0, Math.min(WARD_MAX, (s.ward || 0) + 1)); /* never lowers a Wall of Shields */ say(s, `Shield pair, ${pw.name}: a ward is raised (${s.ward}).`, 'win'); }
       else if (su === 'scroll') { quest.timer += 1; say(s, `Scroll pair, ${pw.name}: ${def.name} gains a round.`, 'win'); }
       else if (su === 'boot') { say(s, `Boot pair, ${pw.name}: no action spent.`, 'win'); }
     });
@@ -796,6 +886,8 @@
       const top = s.party.map((_, i) => i).filter(i => sus[i] === s.rumors.length && i !== idx && s.party[i].alive && !s.party[i].exiled);
       if (top.length === 1) return { type: 'accuse', target: top[0], text: `${defenderDef(s.party[top[0]].id).name} is named in every rumor. Accuse them.` };
     }
+    const fs = suggestFeat(s);
+    if (fs) return fs;
     const hurt = s.party.some(q => q.alive && !q.exiled && q.loc === CITADEL && q.hp < q.maxHp);
     if (p.loc === CITADEL && hurt && p.hp <= 1) return { type: 'rest', text: 'You are nearly down. Rest at the Citadel.' };
     if (p.hp <= 1 && p.hp < p.maxHp) {                 // away from the Citadel: bind your wounds with a pair
@@ -832,6 +924,27 @@
     return { type: 'draw', text: 'Your hand is thin. Gather supplies.' };
   }
 
+  // When a Feat is clearly worth spending now (used by Hint and the bots). Feats are free, so they come first.
+  function suggestFeat(s) {
+    const idx = s.active, p = s.party[idx];
+    if (!p || p.featUsed || !p.alive || p.exiled) return null;
+    const f = defenderDef(p.id).feat, living = livingIdx(s);
+    const use = text => ({ type: 'feat', arg: -1, text: `Use your Feat, ${f.name}: ${text}` });
+    switch (f.id) {
+      case 'rally': { const n = living.filter(i => s.party[i].hp < s.party[i].maxHp).length; return n >= 2 ? use(`${n} defenders are wounded.`) : null; }
+      case 'requisition': return living.reduce((n, i) => n + s.party[i].hand.length, 0) <= living.length * 2 ? use('hands are running thin.') : null;
+      case 'warcry': return s.siege >= 7 && p.hp >= 2 ? use('the siege is closing in.') : null;
+      case 'bulwark': return !s.ward && living.some(i => s.party[i].hp <= 1) ? use('someone is one wound from falling.') : null;
+      case 'dispel': case 'scout': return (s.siege >= 9 || count(s, 'black') >= 4) ? use('one more blow could end it.') : null;
+      case 'relief': {
+        let best = -1;
+        s.quests.forEach((q, i) => { if (q && q.timer <= 1 && q.progress >= q.needed / 2 && (best < 0 || q.progress > s.quests[best].progress)) best = i; });
+        return best >= 0 ? { type: 'feat', arg: best, text: `Use your Feat, ${f.name}: ${questDef(s.quests[best].id).name} is about to fail.` } : null;
+      }
+    }
+    return null;
+  }
+
   // Suspicion tally for the UI: how many rumors name each defender.
   function suspicion(s) {
     const out = s.party.map(() => 0);
@@ -843,7 +956,7 @@
     SUITS, SUIT_LABEL, MODS, POWERS, WARD_MAX, suitPowers, SEATS, WIN_WHITE, LOSE_BLACK, SIEGE_MAX, HAND_LIMIT, SLOTS, CITADEL, MAX_CONTRIBUTE,
     DEFENDERS, QUEST_DEFS, DIFFICULTY, SIZE_NEED,
     createGame, move, contribute, contributeValue, drawAction, rest, accuse, give, endTurn, sabotageAction, discard,
-    sortie, sortieValue, sortieChance, SORTIE_DIE, tend, pressOn,
+    sortie, sortieValue, sortieChance, SORTIE_DIE, tend, pressOn, feat, SHADOW_NAME,
     suggest, redact, suspicion, nextShadowPeek, questDef, defenderDef, count, livingIdx, locName, clone, rumorSize
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

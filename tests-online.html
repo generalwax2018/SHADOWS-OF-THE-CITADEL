@@ -246,6 +246,28 @@ async function connect(host, name) {
     b.guest.close(); h4.close();
   });
 
+  await test('players choose their defenders in the lobby; a clash goes to the earlier seat', async () => {
+    const h7 = new O.Host({ size: 4, seed: 515, botDelay: 5, lanOnly: true, name: 'Hosty', pick: 'mage' });
+    const a = await connect(h7, 'Ada'); a.guest.pick = null;
+    await waitFor(() => h7.seats[a.seat].name === 'Ada', 3000, 'name');
+    const gB = new O.Guest({ name: 'Ben', lanOnly: true, pick: 'mage' });       // asks for the host's defender
+    const inv = await h7.invite(); const rep = await gB.join(inv.code); await h7.accept(inv.seat, rep);
+    await waitFor(() => h7.seats[inv.seat].name === 'Ben', 15000, 'Ben joins');
+    const gC = new O.Guest({ name: 'Cy', lanOnly: true, pick: 'shield' });
+    const inv2 = await h7.invite(); const rep2 = await gC.join(inv2.code); await h7.accept(inv2.seat, rep2);
+    await waitFor(() => h7.seats[inv2.seat].name === 'Cy', 15000, 'Cy joins');
+    await waitFor(() => gC.lobby && gC.lobby.seats[inv2.seat].pick === 'shield', 3000, 'the lobby shows the choice');
+    h7.start();
+    eq(h7.game.party[0].id, 'mage', 'the host plays the Mage-Knight');
+    ok(h7.game.party[inv.seat].id !== 'mage', 'Ben, who asked second, is dealt another');
+    eq(h7.game.party[inv2.seat].id, 'shield', 'Cy plays the Shield-Bearer');
+    eq(new Set(h7.game.party.map(p => p.id)).size, 4, 'no defender twice');
+    await waitFor(() => gC.view, 5000, 'Cy gets the view');
+    let r = null; gC.on('result', m => { if (m.name === 'feat') r = m; }); gC.act('feat', [-1]);
+    await waitFor(() => r, 3000, 'feat result'); ok(!r.ok, 'a Feat is refused out of turn');
+    a.guest.close(); gB.close(); gC.close(); h7.close();
+  });
+
   await test('a host can resume a saved game; friends\' seats wait for them as dropped bots', async () => {
     const h5 = new O.Host({ size: 3, seed: 99, botDelay: 5, lanOnly: true, name: 'Hosty' });
     const c = await connect(h5, 'Cass');

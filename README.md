@@ -165,15 +165,25 @@ defenders than are still standing (3 on Easy and Normal, 2 on Hard, fewer in a s
 game can be solved.
 
 ### Defenders
-| Defender | Ability |
-|---|---|
-| Captain Veyra | +1 progress whenever she plays cards on a quest |
-| Lord Harren | draws 3 cards when gathering supplies |
-| Scout Elira | moving costs no action |
-| The Berserker | Blade cards add +1 progress each |
-| Mage-Knight | glimpses the next Shadow card |
-| Cavalry Captain | takes 3 actions each turn |
-| Shield-Bearer | 4 health instead of 3 |
+Every defender has a **power** that is always on and a **Feat**: a free deed they can use once per game, on their own
+turn (the gold **Feat** button). Select any portrait (on the start screen, the active defender, or the Defenders tab)
+to open that defender's **character sheet**: a full-size portrait with their title, health, power, Feat and story.
+
+| Defender | Power (always on) | Feat (once per game, free) |
+|---|---|---|
+| Captain Veyra | +1 progress whenever she plays cards on a quest | **Rally the Line**: every defender still standing heals 1 |
+| Lord Harren | draws 3 cards when gathering supplies | **Open the Vaults**: every defender draws a card |
+| Scout Elira | moving costs no action | **Clear the Road**: the next Shadow card is revealed and sent to the bottom of the deck |
+| The Berserker | Blade cards add +1 progress each | **Blood and Fire**: two siege engines are torn down; he loses 1 health (not his last) |
+| Mage-Knight | glimpses the next Shadow card | **Unmake**: the next Shadow card is cancelled |
+| Cavalry Captain | takes 3 actions each turn | **Relief Ride**: a mission of your choice gains 2 rounds |
+| Shield-Bearer | 4 health instead of 3 | **Wall of Shields**: raise 2 wards (up to 3, one past the usual limit) |
+
+**Choosing defenders.** On the start screen, under *Your defenders*, select a portrait to read the sheet and take that
+defender into the company (up to the party size). Anyone you do not choose is dealt at random. Challenge links
+remember your choices. A *Your company* screen introduces the party at the start of each game (switch it off there).
+Online, each player picks a defender on the Host or Join form; if two ask for the same one, the earlier seat gets it.
+Your secret role is shown on your own character sheet.
 
 Choose 3 to 7 defenders and Easy, Normal or Hard when starting. Quest costs are fitted per difficulty and party size
 (see [Tests](#tests)), so every size plays at the same difficulty. Your game autosaves in the browser, and your

@@ -936,3 +936,73 @@ body:not(.missions-on-board) .slot.urgent { box-shadow: inset 0 0 0 1px var(--ba
 /* Sortie: an action against the siege, coloured like the siege counter. */
 button.siege-act { border-color: #c46a3a; color: #ffd2b8; }
 button.siege-act:not(:disabled):hover { border-color: #ff9a6a; background: #3a2216; }
+
+/* ======================= release 20261124c: character sheets, the company, Feats ======================= */
+.modal-card.wide { max-width: 760px; }
+
+/* The poster: a tall portrait beside the character's sheet. */
+.poster { display: grid; grid-template-columns: minmax(0, 300px) minmax(0, 1fr); gap: 20px; align-items: start; }
+.poster-art { position: relative; border-radius: 10px; overflow: hidden; border: 2px solid var(--gold); box-shadow: 0 10px 30px rgba(0,0,0,.7), inset 0 0 0 1px rgba(255,240,200,.15); aspect-ratio: 2 / 3; background: #0c0907; }
+.poster-art img { width: 100%; height: 100%; object-fit: cover; display: block; animation: breathe 6s ease-in-out infinite; transform-origin: 50% 100%; }
+.poster-art::after { content: ''; position: absolute; inset: 0; background: linear-gradient(to top, rgba(8,6,5,.85), rgba(8,6,5,0) 35%); pointer-events: none; }
+.poster-role { position: absolute; z-index: 1; left: 0; right: 0; bottom: 12px; text-align: center; font: 600 13px Georgia, serif; letter-spacing: .3em; text-transform: uppercase; color: var(--gold-hi); text-shadow: 0 1px 6px #000; }
+.poster-title { display: block; font-size: 12px; letter-spacing: .2em; text-transform: uppercase; color: var(--gold); }
+.poster-body h2 { margin: 2px 0 6px; font-size: 30px; }
+.poster-hp { display: flex; align-items: center; gap: 5px; margin-bottom: 12px; }
+.poster-hp i { width: 14px; height: 14px; border-radius: 50%; border: 1px solid #a33; background: #c43c3c; box-shadow: 0 0 6px rgba(196,60,60,.5); }
+.poster-hp i.off { background: transparent; border-color: #553; box-shadow: none; }
+.poster-hp span { margin-left: 6px; font-size: 12px; color: var(--muted); }
+.poster-box { border: 1px solid var(--edge); border-radius: 8px; padding: 9px 12px; margin: 0 0 9px; background: linear-gradient(180deg, #1f1912, #15110c); }
+.poster-box small { display: block; font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.poster-box b { display: block; font: 600 17px Georgia, serif; color: #f0e4c8; margin: 2px 0; }
+.modal-card .poster-box p { margin: 0; font-size: 13.5px; }
+.poster-box.feat { border-color: #8a6a32; box-shadow: inset 0 0 18px rgba(230,201,143,.08); }
+.poster-box.feat b { color: var(--gold-hi); }
+.poster-box.feat.used { opacity: .55; }
+.modal-card p.poster-bio { font-style: italic; color: #b8ad98; font-size: 13px; margin: 6px 0 0; }
+.poster-status { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.poster-status span { padding: 2px 9px; border: 1px solid var(--edge); border-radius: 99px; font-size: 12px; color: var(--ink); background: #120e0b; }
+.poster.is-traitor .poster-art { border-color: #d0584a; box-shadow: 0 0 34px rgba(208,60,40,.45); }
+.poster.is-loyal .poster-art { border-color: #5a9ad0; box-shadow: 0 0 28px rgba(90,154,208,.35); }
+.poster .role-banner { padding: 12px; margin-bottom: 12px; }
+.poster .role-banner b { font-size: 22px; }
+@media (max-width: 620px) {
+  .poster { grid-template-columns: 1fr; }
+  .poster-art { max-width: 220px; margin: 0 auto; width: 100%; }
+}
+
+/* Choosing defenders on the start screen. */
+.pick-row { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+.pick-def { position: relative; padding: 0; border: 1px solid var(--edge); border-radius: 6px; overflow: hidden; background: #0c0907; aspect-ratio: 2 / 3; }
+.pick-def img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 15%; display: block; filter: saturate(.6) brightness(.75); transition: filter .2s; }
+.pick-def span { position: absolute; left: 0; right: 0; bottom: 0; padding: 10px 2px 3px; font-size: 9.5px; line-height: 1.1; text-align: center; color: #f0e4c8; background: linear-gradient(to top, rgba(6,4,3,.95), rgba(6,4,3,0)); }
+.pick-def:hover img, .pick-def.sel img { filter: none; }
+.pick-def.sel { border-color: var(--gold-hi); box-shadow: 0 0 12px rgba(230,201,143,.5); }
+.pick-def i { position: absolute; top: 4px; right: 4px; width: 18px; height: 18px; border-radius: 50%; background: var(--gold-hi); color: #1a1208; font: 700 11px/18px system-ui, sans-serif; font-style: normal; text-align: center; }
+@media (max-width: 560px) { .pick-row { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+
+/* The company at the start of a game. */
+.muster { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; margin-top: 10px; }
+.muster-card { position: relative; padding: 0; border: 1px solid #5a4a30; border-radius: 8px; overflow: hidden; aspect-ratio: 2 / 3; background: #0c0907; text-align: left; }
+.muster-card img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 15%; }
+.muster-card::after { content: ''; position: absolute; inset: 0; background: linear-gradient(to top, rgba(6,4,3,.95) 8%, rgba(6,4,3,0) 55%); }
+.muster-card b, .muster-card small, .muster-card .mc-role { position: absolute; z-index: 1; left: 8px; right: 8px; }
+.muster-card b { bottom: 22px; font: 600 13px Georgia, serif; color: #f6ead0; }
+.muster-card small { bottom: 7px; font-size: 10.5px; color: var(--gold-hi); }
+.muster-card .mc-role { top: 6px; font-size: 9.5px; letter-spacing: .18em; text-transform: uppercase; color: var(--gold-hi); text-shadow: 0 1px 4px #000; }
+.muster-card:hover { border-color: var(--gold-hi); transform: translateY(-3px); }
+
+/* In play: the portrait opens the sheet; the Feat is a gold button. */
+.active-panel .portrait.poster-link { padding: 0; cursor: zoom-in; background: none; }
+.active-panel .portrait.poster-link:hover { border-color: var(--gold-hi); box-shadow: 0 0 12px rgba(230,201,143,.45); }
+.ap-title { display: block; font-size: 10.5px; letter-spacing: .16em; text-transform: uppercase; color: var(--gold); }
+.active-panel p.feat-line { color: #d8c08a; }
+.active-panel p.feat-line.used { opacity: .5; }
+button.feat-act { border-color: var(--gold-hi); color: #ffe9b0; background: linear-gradient(#4a3818, #2a1f0e); box-shadow: inset 0 0 10px rgba(230,201,143,.15); }
+button.feat-act:not(:disabled):hover { background: #5c4520; box-shadow: 0 0 12px rgba(230,201,143,.4); }
+.pm { cursor: zoom-in; }
+.pm:hover { border-color: var(--gold); }
+.pm.feat-spent::after { content: 'Feat used'; position: absolute; top: 4px; right: 4px; font-size: 9px; color: var(--muted); background: rgba(0,0,0,.7); padding: 0 5px; border-radius: 99px; }
+.seat-pick { display: inline-flex; align-items: center; gap: 5px; color: var(--gold); font-size: 11.5px; }
+.seat-pick img { width: 18px; height: 24px; object-fit: cover; border-radius: 3px; }
+.seat-row { grid-template-columns: 24px 1fr auto auto; }

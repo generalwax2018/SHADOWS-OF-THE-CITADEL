@@ -119,6 +119,21 @@
       p.hand = saved; H.render(); }
     check('the Feedback button stays hidden until a form is set', $('btnFeedback').hidden);
 
+    // character sheets and Feats
+    { const gg = H.game, a = gg.active, p = gg.party[a], d = C.defenderDef(p.id);
+      click(document.querySelector('#activePanel .poster-link'));
+      const mc = $('modalCard');
+      check('the active portrait opens the character sheet', !$('modal').hidden && mc.classList.contains('wide') && mc.querySelector('.poster h2').textContent === d.name);
+      check('the sheet shows the power, the Feat and the bio', mc.querySelector('.poster-box.power') && mc.querySelector('.poster-box.feat').textContent.includes(d.feat.name) && mc.querySelector('.poster-bio'));
+      check('the sheet portrait loads', await new Promise(r => { const im = mc.querySelector('.poster-art img'); if (im.complete) r(im.naturalWidth > 0); else { im.onload = () => r(true); im.onerror = () => r(false); } }));
+      btnByText(mc, /^Close/).click();
+      click(document.querySelectorAll('.pm')[(a + 1) % gg.party.length]);
+      check('any defender in the party opens their sheet', !$('modal').hidden && $('modalCard').querySelector('.poster-status'));
+      btnByText($('modalCard'), /^Close/).click();
+      const fb = btnByText($('actions'), /^Feat/);
+      check('a Feat button names the active defender\'s Feat', !!fb && fb.textContent.includes(d.feat.name));
+      check('every defender has a portrait, a title and a Feat', C.DEFENDERS.every(x => x.img && x.title && x.feat && x.feat.text)); }
+
     // sortie, tend wounds, press on
     { const gg = H.game, a = gg.active, p = gg.party[a], saved = { hand: p.hand.slice(), loc: p.loc, hp: p.hp, siege: gg.siege, acts: gg.actionsLeft, ward: gg.ward };
       document.querySelectorAll('#hand .card.selected').forEach(c => click(c));

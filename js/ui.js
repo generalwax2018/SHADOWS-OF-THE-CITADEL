@@ -14,7 +14,7 @@
 
   // ---------- settings (remembered in this browser) ----------
   const SETTINGS_KEY = 'citadel-settings-v1';
-  const SET_DEFAULTS = { volume: 0.7, ambience: true, motion: 'system', text: 'normal', autoView: false, cb: false };
+  const SET_DEFAULTS = { volume: 0.7, ambience: true, motion: 'system', text: 'normal', autoView: false, cb: false, muster: true };
   const SET = Object.assign({}, SET_DEFAULTS);
   try { Object.assign(SET, JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}); } catch (e) { /* storage blocked or damaged: use defaults */ }
   function saveSettings() { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(SET)); } catch (e) { /* ignore */ } }
@@ -125,7 +125,7 @@
 
   // ---------- path of destruction + card flights ----------
   // The trail lists every Shadow card drawn this game, so the whole table can see how the ruin is spreading.
-  const TRAIL_TONE = { calm: 'calm', omen: 'calm', famine: 'warn', eclipse: 'ruin', dread: 'warn', whisper: 'warn', wound: 'warn', hand: 'warn', siege1: 'ruin', siege2: 'ruin', gate: 'ruin', failed: 'ruin' };
+  const TRAIL_TONE = { dispelled: 'calm', calm: 'calm', omen: 'calm', famine: 'warn', eclipse: 'ruin', dread: 'warn', whisper: 'warn', wound: 'warn', hand: 'warn', siege1: 'ruin', siege2: 'ruin', gate: 'ruin', failed: 'ruin' };
   const trailName = t => t === 'failed' ? ['Quest Lost', 'A quest ran out of time.'] : SHADOW_INFO[t];
   function renderTrail(s) {
     const box = $('trail');
@@ -174,7 +174,7 @@
     siege1: ['Siege Engine', 'Another engine rolls up to the walls.'], siege2: ['Full Assault', 'Two engines hit the walls at once.'],
     dread: ['Dread', 'Every quest deadline shortens.'], wound: ['Arrow Storm', 'A defender is wounded.'],
     whisper: ['Whisper', 'A card is stolen from the active hand.'], gate: ['The Gate Opens', 'A black sword is seated.'],
-    calm: ['Calm', 'Nothing stirs. For now.'], omen: ['Fair Omen', 'The active defender draws two cards.'], famine: ['Famine', 'Every defender discards a card.'], eclipse: ['Eclipse', 'The furthest-along mission loses 2 progress.'], hand: ['Treachery', 'The Traitor strikes from within.']
+    calm: ['Calm', 'Nothing stirs. For now.'], dispelled: ['Unmade', 'A Shadow card came to nothing.'], omen: ['Fair Omen', 'The active defender draws two cards.'], famine: ['Famine', 'Every defender discards a card.'], eclipse: ['Eclipse', 'The furthest-along mission loses 2 progress.'], hand: ['Treachery', 'The Traitor strikes from within.']
   };
 
   function snapshot(s) {
@@ -413,9 +413,11 @@
       if (isTraitorMe() && !s.traitorRevealed) who += '<div class="role-tag">You are the Traitor</div>';
     }
     $('activePanel').innerHTML =
-      `<div class="portrait"><img src="assets/${d.img}.webp" alt="${esc(d.name)}"></div>` +
-      `<div>${who}<h3>${esc(d.name)}</h3>${hpPips(p)}<p>${esc(d.ability)}</p>` +
+      `<button type="button" class="portrait poster-link" title="Read ${esc(d.name)}'s sheet"><img src="assets/${d.img}.webp" alt="${esc(d.name)}"></button>` +
+      `<div>${who}<small class="ap-title">${esc(d.title)}</small><h3>${esc(d.name)}</h3>${hpPips(p)}<p>${esc(d.ability)}</p>` +
+      `<p class="feat-line${p.featUsed ? ' used' : ''}"><b>Feat:</b> ${esc(d.feat.name)}${p.featUsed ? ' (used)' : ''}. ${esc(d.feat.text)}</p>` +
       (peek ? `<div class="peek">Foresight: next Shadow is ${peekText[peek] || peek}.</div>` : '') + '</div>';
+    $('activePanel').querySelector('.poster-link').onclick = () => openPoster(p.id, s.active);
 
     // hand
     const hand = $('hand');
@@ -821,6 +823,9 @@
       title: 'Select two cards of the same suit, then heal 1: yourself or a wounded defender standing with you. Works anywhere.' });
     btn('Press on', () => act(() => perform('pressOn')), { cls: 'ghost', needAction: false, disabled: !!s.pressedOn || p.hp <= 1,
       title: 'Once per turn: lose 1 health for one more action. Not from your last point of health.' });
+    { const f = C.defenderDef(p.id).feat;
+      btn(p.featUsed ? `Feat used` : `Feat: ${f.name}`, useFeat, { cls: 'feat-act', needAction: false, disabled: !!p.featUsed || !p.alive,
+        title: `${f.name}: ${f.text} Free, once per game.` }); }
     const mates = giveTargets();
     btn('Give card...', openGive, { disabled: ui.picked.length !== 1 || mates.length === 0,
       title: 'Select exactly one card, then pass it to a defender standing in the same place' });
@@ -865,6 +870,81 @@
     const box = $('modalCard');
     box.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { closeModal(); act(() => perform('sabotageAction', +b.dataset.t)); });
     box.querySelector('[data-a="cancel"]').onclick = closeModal;
+  }
+
+  // ---------- character posters: every defender's reference sheet ----------
+  // Shown when choosing defenders, from the portraits in play, and on the online role screen.
+  function posterHtml(id, i, opts) {
+    opts = opts || {};
+    const d = C.defenderDef(id), p = i != null && game ? game.party[i] : null;
+    const [pName, pRaw] = d.ability.split(/:\s+/);
+    const pText = (pRaw || '').replace(/^./, c => c.toUpperCase());
+    const hp = p ? p.hp : d.hp;
+    let hearts = '';
+    for (let k = 0; k < d.hp; k++) hearts += `<i class="${k < hp ? '' : 'off'}"></i>`;
+    let status = '';
+    if (p) {
+      const st = p.exiled ? 'Exiled' : !p.alive ? 'Fallen' : p.stunned ? 'Stunned' : C.locName(game, p.loc);
+      status = `<div class="poster-status"><span>${p.exiled || !p.alive ? '' : 'At '}${esc(st)}</span><span>${p.hand.length} card${p.hand.length === 1 ? '' : 's'}</span>` +
+        (game.rumors.length ? `<span>Named in ${C.suspicion(game)[i]} of ${game.rumors.length} rumors</span>` : '') + '</div>';
+    }
+    return `<div class="poster${opts.loyalty ? ' ' + opts.loyalty : ''}">` +
+      `<div class="poster-art"><img src="assets/${d.img}.webp" alt="Portrait of ${esc(d.name)}"><span class="poster-role">${esc(d.role)}</span></div>` +
+      '<div class="poster-body">' +
+      (opts.banner || '') +
+      `<small class="poster-title">${esc(d.title)}</small><h2${opts.titleId === false ? '' : ' id="modalTitle"'}>${esc(d.name)}</h2>` +
+      `<div class="poster-hp" aria-label="${hp} of ${d.hp} health">${hearts}<span>${d.hp} health</span></div>` +
+      `<div class="poster-box power"><small>Power, always on</small><b>${esc(pName)}</b><p>${esc(pText || '')}</p></div>` +
+      `<div class="poster-box feat${p && p.featUsed ? ' used' : ''}"><small>Feat, once per game, free${p && p.featUsed ? ': used' : ''}</small><b>${esc(d.feat.name)}</b><p>${esc(d.feat.text)}</p></div>` +
+      `<p class="poster-bio">${esc(d.bio)}</p>${status}</div></div>`;
+  }
+  // actions: [[label, cls, fn], ...]; the first is focused. Closing without a choice runs onBack.
+  function openPoster(id, i, actions, opts) {
+    actions = actions && actions.length ? actions : [['Close', 'primary', closeModal]];
+    openModal(posterHtml(id, i, opts) + '<div class="modal-actions">' +
+      actions.map((a, k) => `<button type="button" class="${a[1] || ''}" data-k="${k}">${esc(a[0])}</button>`).join('') + '</div>');
+    $('modalCard').classList.add('wide');
+    $('modalCard').querySelectorAll('.modal-actions [data-k]').forEach(b => { b.onclick = actions[+b.dataset.k][2]; });
+  }
+
+  // The company at the start of a game: who stands with you, and what each can do.
+  function showMuster(then) {
+    if (!SET.muster || !game || ui.fast) { if (then) then(); return; }
+    const s = game;
+    let h = '<h2 id="modalTitle">Your company</h2><p>These defenders hold the Citadel this time. Select one to read their sheet. ' +
+      'Each has a power that is always on and a <b>Feat</b> they can use once, for free.</p><div class="muster">';
+    s.party.forEach((p, i) => {
+      const d = C.defenderDef(p.id);
+      h += `<button type="button" class="muster-card" data-i="${i}"><img src="assets/${d.img}.webp" alt=""><span class="mc-role">${esc(d.role)}</span>` +
+        `<b>${esc(d.name)}</b><small>${esc(d.feat.name)}</small></button>`;
+    });
+    h += '</div><label class="check"><input type="checkbox" id="musterOn" checked> Show the company at the start of each game</label>' +
+      '<div class="modal-actions"><button type="button" class="primary" data-a="go">To the walls</button></div>';
+    const done = () => { delete $('modal').dataset.lock; closeModal(); if (then) then(); };
+    const open = () => {
+      $('modal').dataset.lock = '1';
+      openModal(h);
+      $('modalCard').classList.add('wide');
+      const box = $('modalCard');
+      box.querySelectorAll('.muster-card').forEach(b => b.onclick = () => openPoster(s.party[+b.dataset.i].id, +b.dataset.i, [['Back to the company', 'primary', open]]));
+      box.querySelector('#musterOn').onchange = e => { SET.muster = e.target.checked; saveSettings(); };
+      box.querySelector('[data-a="go"]').onclick = done;
+    };
+    open();
+  }
+
+  // The Feat button: free, once per game. The Relief Ride needs a mission.
+  function useFeat() {
+    const s = game, p = s.party[s.active], f = C.defenderDef(p.id).feat;
+    if (p.featUsed || !mine()) return;
+    if (f.target !== 'slot') { act(() => perform('feat', -1)); return; }
+    if (ui.selectedSlot != null && s.quests[ui.selectedSlot]) { act(() => perform('feat', ui.selectedSlot)); return; }
+    let h = `<h2 id="modalTitle">${esc(f.name)}</h2><p>${esc(f.text)}</p><div class="pick plot-pick">`;
+    s.quests.forEach((q, slot) => { if (q) { const d = C.questDef(q.id); h += `<button type="button" data-t="${slot}">${suitIcon(d.suit)}<b>${esc(d.name)}</b><small>${q.progress}/${q.needed} &middot; ${q.timer} rd</small></button>`; } });
+    h += '</div><div class="modal-actions"><button type="button" data-a="cancel">Cancel</button></div>';
+    openModal(h);
+    $('modalCard').querySelectorAll('[data-t]').forEach(b => b.onclick = () => { closeModal(); act(() => perform('feat', +b.dataset.t)); });
+    $('modalCard').querySelector('[data-a="cancel"]').onclick = closeModal;
   }
 
   function tendTargets() {
@@ -931,7 +1011,11 @@
         `<div class="portrait"><img src="assets/${d.img}.webp" alt=""></div>` +
         `<div class="nm">${esc(d.name)}</div>` + (owner ? `<div class="owner">${esc(owner)}${youTag}</div>` : '') +
         `<div class="where">${down ? '-' : esc(C.locName(s, p.loc))}</div>` + hpPips(p);
-      m.title = d.ability + (s.rumors.length ? `\nNamed in ${sus[i]} of ${s.rumors.length} rumors.` : '');
+      m.title = d.ability + `\nFeat: ${d.feat.name}${p.featUsed ? ' (used)' : ''}` + (s.rumors.length ? `\nNamed in ${sus[i]} of ${s.rumors.length} rumors.` : '') + '\nSelect to read the full sheet.';
+      m.tabIndex = 0; m.setAttribute('role', 'button');
+      m.onclick = () => openPoster(p.id, i);
+      m.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPoster(p.id, i); } };
+      if (p.featUsed) m.classList.add('feat-spent');
       box.appendChild(m);
     });
   }
@@ -988,6 +1072,9 @@
       return card('power', 'complete', `${pm[1]} pair: ${pm[2]}`, t.replace(/^\w+ pair, \w+:\s*/, '').replace(/^./, c => c.toUpperCase()), 'win');
     }
     if (/A ward shatters/.test(t)) return card('power', 'complete', 'Ward Shatters', clean, 'win');
+    { const fd = C.DEFENDERS.find(d => t.indexOf(d.name + ': ' + d.feat.name + '!') === 0);
+      if (fd) return card('power', 'complete', fd.feat.name, t.slice(fd.name.length + 2), 'win'); }
+    if (/unmakes it\. Nothing happens/.test(t)) return card('power', 'eye', 'Unmade', clean, 'win');
     if (/^Betrayal!/.test(t)) return card('traitor', 'eye', 'Betrayal at the Last', clean, 'lose');
     if (/^Sortie!.*burns/.test(t)) return card('siege', 'sword', 'Sortie: An Engine Burns', clean, 'win');
     if (/^Sortie!.*driven back/.test(t)) return card('wound', 'wound', 'Sortie Driven Back', clean, 'lose');
@@ -1117,6 +1204,7 @@
   // ---------- modals ----------
   function openModal(html, onClose) {
     const m = $('modal');
+    $('modalCard').classList.remove('wide');
     $('modalCard').innerHTML = html;
     m.hidden = false;
     m._onClose = onClose || null;
@@ -1197,7 +1285,7 @@
   }
 
   function shareUrl(s) {
-    return location.href.split('#')[0] + `#seed=${s.seed}&size=${s.party.length}&diff=${s.difficulty}`;
+    return location.href.split('#')[0] + `#seed=${s.seed}&size=${s.party.length}&diff=${s.difficulty}` + (s.picks && s.picks.length ? '&picks=' + s.picks.join(',') : '');
   }
 
   // ---------- daily challenge: the same game for everyone, once a day ----------
@@ -1439,6 +1527,8 @@
       'Six black swords or twelve siege engines and the Citadel falls.</p>' +
       '<h3>Defenders</h3><div class="choice-row" id="sizeRow">' + sizes + '</div>' +
       '<h3>Difficulty</h3><div class="choice-row" id="diffRow">' + diffs + '</div>' +
+      '<h3>Your defenders <small style="text-transform:none;letter-spacing:0;color:var(--muted)" id="pickNote"></small></h3>' +
+      '<div class="pick-row" id="pickRow"></div>' +
       '<h3>Seed <small style="text-transform:none;letter-spacing:0;color:var(--muted)">(optional: same seed = same game)</small></h3>' +
       '<input id="seedInput" class="seed-input" inputmode="numeric" maxlength="10" placeholder="random" aria-label="Game seed">' +
       statsLine() + dailyRow() + campaignRow() +
@@ -1452,7 +1542,33 @@
     const card = $('modalCard');
     const rh = card.querySelector('[data-a="resumeHost"]');
     if (rh) rh.onclick = resumeHosted;
-    card.querySelectorAll('[data-size]').forEach(b => b.onclick = () => { ui.setup.size = +b.dataset.size; card.querySelectorAll('[data-size]').forEach(x => x.classList.toggle('sel', x === b)); });
+    // choose defenders: select a portrait to read their sheet and take them into (or leave them out of) the company
+    ui.setup.picks = (ui.setup.picks || []).slice(0, ui.setup.size);
+    const seedBox = card.querySelector('#seedInput');
+    seedBox.value = ui.setup.seed || '';
+    seedBox.oninput = () => { ui.setup.seed = seedBox.value; };
+    const renderPicks = () => {
+      const picks = ui.setup.picks, n = ui.setup.size;
+      card.querySelector('#pickNote').textContent = picks.length
+        ? `(${picks.length} of ${n} chosen${picks.length < n ? '; the rest are dealt at random' : ''})`
+        : `(optional: select a portrait to read their sheet and choose up to ${n}; otherwise all are dealt at random)`;
+      card.querySelector('#pickRow').innerHTML = C.DEFENDERS.map(d => {
+        const k = picks.indexOf(d.id);
+        return `<button type="button" class="pick-def${k >= 0 ? ' sel' : ''}" data-def="${d.id}" aria-pressed="${k >= 0}" title="${esc(d.name)}: ${esc(d.role)}. Select to read their sheet.">` +
+          `<img src="assets/${d.img}.webp" alt=""><span>${esc(d.name)}</span>${k >= 0 ? `<i>${k + 1}</i>` : ''}</button>`;
+      }).join('');
+      card.querySelectorAll('.pick-def').forEach(b => b.onclick = () => {
+        const id = b.dataset.def, taken = ui.setup.picks.includes(id), full = ui.setup.picks.length >= ui.setup.size;
+        const back = () => { openSetup(); };
+        const acts = [taken ? ['Leave out', 'ghost', () => { ui.setup.picks = ui.setup.picks.filter(x => x !== id); back(); }]
+          : [full ? `Company full (${ui.setup.size})` : 'Take into the company', 'primary', () => { if (!full) ui.setup.picks.push(id); back(); }],
+          ['Back', taken ? 'primary' : '', back]];
+        openPoster(id, null, acts);
+        if (!taken && full) $('modalCard').querySelector('[data-k="0"]').disabled = true;
+      });
+    };
+    renderPicks();
+    card.querySelectorAll('[data-size]').forEach(b => b.onclick = () => { ui.setup.size = +b.dataset.size; ui.setup.picks = ui.setup.picks.slice(0, ui.setup.size); renderPicks(); card.querySelectorAll('[data-size]').forEach(x => x.classList.toggle('sel', x === b)); });
     card.querySelectorAll('[data-diff]').forEach(b => b.onclick = () => { ui.setup.difficulty = b.dataset.diff; card.querySelectorAll('[data-diff]').forEach(x => x.classList.toggle('sel', x === b)); });
     card.querySelector('[data-a="rules"]').onclick = () => { delete $('modal').dataset.lock; openRules(openSetup); };
     card.querySelector('[data-a="online"]').onclick = () => { delete $('modal').dataset.lock; openOnlineMenu(); };
@@ -1466,10 +1582,12 @@
       leaveOnline();
       ui.preview = false;
       const raw = card.querySelector('#seedInput').value.trim();
-      const opts = { partySize: ui.setup.size, difficulty: ui.setup.difficulty };
+      const opts = { partySize: ui.setup.size, difficulty: ui.setup.difficulty, picks: (ui.setup.picks || []).slice() };
       if (/^\d+$/.test(raw)) opts.seed = Number(raw);
-      startFrom(C.createGame(opts));
-      maybeStartTour();
+      const g = C.createGame(opts);
+      if (opts.picks.length) g.picks = opts.picks;           // so a challenge link deals the same company
+      startFrom(g);
+      showMuster(maybeStartTour);
     };
   }
 
@@ -1491,6 +1609,8 @@
       '<li><b>Hint</b> suggests a sensible next step. <b>Undo</b> takes back an action, but not one that drew cards.</li>' +
       '<li>Quests have a deadline in rounds. Miss it and a black sword is seated.</li>' +
       '<li>Finishing a quest seats a white sword, pushes the siege back one, and everyone draws a card.</li></ul>' +
+      '<h3>Defenders</h3><ul><li>Choose your defenders on the start screen (or let them be dealt). Select any portrait, in play or before, to read their sheet.</li>' +
+      '<li>Each has a <b>power</b> that is always on and a <b>Feat</b>: a free deed they can use once per game, on their own turn.</li></ul>' +
       '<h3>The Traitor</h3><ul><li>One defender secretly serves the enemy and sabotages quests and gates.</li>' +
       '<li>A sabotage springs at the <b>start of a turn</b>, on anyone\'s turn, so its timing tells you nothing.</li>' +
       '<li>Each sabotage produces a rumor: a short list of who was near. The Traitor is <b>always</b> on it, so compare rumors.</li>' +
@@ -1706,7 +1826,18 @@
   }
 
   function seatRows(seats) {
-    return seats.map((s, i) => `<li class="seat-row ${s.kind}"><span>${i + 1}.</span><b>${esc(s.name)}</b><em>${s.kind === 'host' ? 'host' : s.kind === 'human' ? 'friend' : 'bot'}</em></li>`).join('');
+    return seats.map((s, i) => {
+      const d = s.pick && C.defenderDef(s.pick);
+      return `<li class="seat-row ${s.kind}"><span>${i + 1}.</span><b>${esc(s.name)}</b>` +
+        (d ? `<small class="seat-pick"><img src="assets/${d.img}.webp" alt="">${esc(d.name)}</small>` : '') +
+        `<em>${s.kind === 'host' ? 'host' : s.kind === 'human' ? 'friend' : 'bot'}</em></li>`;
+    }).join('');
+  }
+  // A "which defender do you want to play" chooser for the online forms; the sheet opens on demand.
+  function defenderSelect(id, current) {
+    return `<div class="set-row"><label for="${id}">Defender</label><select id="${id}" class="seed-input"><option value="">Deal me one at random</option>` +
+      C.DEFENDERS.map(d => `<option value="${d.id}"${d.id === current ? ' selected' : ''}>${esc(d.name)}: ${esc(d.role)}</option>`).join('') +
+      '</select></div><p class="hint-line">If two players ask for the same defender, the earlier seat gets them and the other is dealt one at random.</p>';
   }
 
   function openHostLobby() {
@@ -1715,6 +1846,7 @@
     $('modal').dataset.lock = '1';
     openModal('<h2 id="modalTitle">Host a game</h2>' +
       '<h3>Your name</h3><input id="hostName" class="seed-input" maxlength="16" placeholder="Host" value="' + esc(nameSaved) + '">' +
+      defenderSelect('hostPick', ui.setup.myPick) +
       '<label class="check"><input type="checkbox" id="lanOnly"> Same network only (does not contact a STUN server)</label>' +
       '<div class="modal-actions"><button type="button" class="ghost" data-a="back">Back</button>' +
       '<button type="button" class="primary" data-a="create">Create lobby</button></div>');
@@ -1725,7 +1857,8 @@
       try { localStorage.setItem('citadel-name', name); } catch (e) { /* ignore */ }
       const delayM = /botdelay=(\d+)/.exec(location.hash);   // test hook: #botdelay=20
       const seedM = /hostseed=(\d+)/.exec(location.hash);    // test hook: #hostseed=7 makes the lobby game reproducible
-      const host = new O.Host({ size: ui.setup.size, difficulty: ui.setup.difficulty, name, lanOnly: box.querySelector('#lanOnly').checked,
+      ui.setup.myPick = box.querySelector('#hostPick').value || null;
+      const host = new O.Host({ size: ui.setup.size, difficulty: ui.setup.difficulty, name, lanOnly: box.querySelector('#lanOnly').checked, pick: ui.setup.myPick,
         botDelay: delayM ? +delayM[1] : undefined, seed: seedM ? +seedM[1] : undefined });
       ui.lobbySession = host;
       wireHost(host);
@@ -1886,14 +2019,17 @@
   }
 
   function showRole() {
-    const traitor = isTraitorMe();
+    const traitor = isTraitorMe(), me = game.party[online.seat];
+    const asked = ui.setup.myPick && ui.setup.myPick !== me.id ? `<p class="hint-line">${esc(C.defenderDef(ui.setup.myPick).name)} was already taken, so you were dealt a defender.</p>` : '';
     $('modal').dataset.lock = '1';
-    openModal('<div class="role-banner ' + (traitor ? 'traitor' : 'loyal') + '"><small>Your secret role</small><b>' + (traitor ? 'You are the Traitor' : 'You are a loyal defender') + '</b></div>' +
-      '<h2 id="modalTitle" class="sr-only">' + (traitor ? 'You are the Traitor' : 'You are a loyal defender') + '</h2>' +
-      '<p>You control <b>' + esc(C.defenderDef(game.party[online.seat].id).name) + '</b>.</p>' +
-      (traitor ? '<p>Win by letting the Citadel fall. On your turn, press <b>Sabotage</b> to lay a plot against a mission or the gates. It is free, nobody sees it, and it springs at the start of a later turn, often someone else\'s. Witnesses will still name you and a few others, so pace yourself. Do not reveal your role.</p>'
-               : '<p>One defender is secretly a Traitor and could be another person. Watch the rumors after each sabotage, then accuse.</p>') +
+    // The role screen is your character sheet: who you play, what they can do, and (privately) which side you are on.
+    openModal('<h2 id="modalTitle" class="sr-only">' + (traitor ? 'You are the Traitor' : 'You are a loyal defender') + '</h2>' + posterHtml(me.id, online.seat, { titleId: false, loyalty: traitor ? 'is-traitor' : 'is-loyal',
+      banner: '<div class="role-banner ' + (traitor ? 'traitor' : 'loyal') + '"><small>Your secret role</small><b>' + (traitor ? 'You are the Traitor' : 'You are a loyal defender') + '</b></div>' }) +
+      asked +
+      (traitor ? '<p>Win by letting the Citadel fall. On your turn, press <b>Sabotage</b> to lay a plot against a mission or the gates. It is free, nobody sees it, and it springs at the start of a later turn, often someone else\'s. Witnesses will still name you and a few others, so pace yourself. If you are still hidden when the 7th white sword is seated, you break one. Do not reveal your role.</p>'
+               : '<p>One defender is secretly a Traitor and could be another person. Watch the rumors after each sabotage, then accuse. Find them before the end: a Traitor still hidden at the 7th white sword breaks one.</p>') +
       '<div class="modal-actions"><button type="button" class="primary" data-a="go">Begin</button></div>');
+    $('modalCard').classList.add('wide');
     $('modalCard').querySelector('[data-a="go"]').onclick = () => { delete $('modal').dataset.lock; closeModal(); };
   }
 
@@ -1903,6 +2039,7 @@
     $('modal').dataset.lock = '1';
     openModal('<h2 id="modalTitle">' + (rejoin ? 'Rejoin the game' : 'Join a game') + '</h2>' + (rejoin ? '<p>Ask the host to press <b>Invite / rejoin</b> and pick your seat, then paste the new invite code below.</p>' : '') +
       '<h3>Your name</h3><input id="joinName" class="seed-input" maxlength="16" placeholder="Player" value="' + esc(nameSaved) + '">' +
+      (rejoin ? '' : defenderSelect('joinPick', ui.setup.myPick)) +
       '<label class="check"><input type="checkbox" id="joinLan"> Same network only (does not contact a STUN server)</label>' +
       '<h3>1. Paste the host\'s invite code</h3><textarea class="code" rows="3" id="invite" placeholder="SOC1...."></textarea>' +
       '<div class="row"><button type="button" class="primary" data-a="make">Create reply code</button></div>' +
@@ -1918,7 +2055,9 @@
       msg.className = 'msg ok'; msg.textContent = 'Working...';
       btn.disabled = true;
       if (guest) guest.close();
-      guest = new O.Guest({ name, lanOnly: box.querySelector('#joinLan').checked });
+      const pk = box.querySelector('#joinPick');
+      if (pk) ui.setup.myPick = pk.value || null;
+      guest = new O.Guest({ name, lanOnly: box.querySelector('#joinLan').checked, pick: pk ? pk.value || null : null });
       guest.on('lobby', l => { msg.className = 'msg ok'; msg.innerHTML = 'Connected to the host. Waiting for the game to start...<ul class="seat-list">' + seatRows(l.seats) + '</ul>'; });
       guest.on('start', view => {
         delete $('modal').dataset.lock; closeModal();
@@ -2063,8 +2202,11 @@
   const seedMatch = /seed=(\d+)/.exec(location.hash);
   if (seedMatch) {
     // #seed=42&size=4&diff=hard starts that exact game immediately (challenge links, bug reports).
-    const sizeM = /size=([3-7])/.exec(location.hash), diffM = /diff=(easy|normal|hard)/.exec(location.hash);
-    startFrom(C.createGame({ seed: +seedMatch[1], partySize: sizeM ? +sizeM[1] : 5, difficulty: diffM ? diffM[1] : 'normal' }));
+    const sizeM = /size=([3-7])/.exec(location.hash), diffM = /diff=(easy|normal|hard)/.exec(location.hash), picksM = /picks=([a-z,]+)/.exec(location.hash);
+    const picks = picksM ? picksM[1].split(',').filter(id => C.DEFENDERS.some(d => d.id === id)) : [];
+    const g0 = C.createGame({ seed: +seedMatch[1], partySize: sizeM ? +sizeM[1] : 5, difficulty: diffM ? diffM[1] : 'normal', picks });
+    if (picks.length) g0.picks = picks;
+    startFrom(g0);
   } else {
     // Show a backdrop game behind the setup dialog; keep any real autosave untouched.
     ui.existingSave = loadSave();
