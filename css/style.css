@@ -864,3 +864,18 @@ body.missions-on-board #missions .mc-meta { font-size: 1.05cqw; margin-bottom: 0
 body.missions-on-board #missions .mc-token { width: 1.8cqw; height: 1.8cqw; margin-left: -0.5cqw; }
 body.missions-on-board #missions .mc-bar { height: 0.5cqw; }
 body.missions-on-board #missions .mc-float { font-size: 2.2cqw; }
+
+/* ======================= board missions: everything on the card itself ======================= */
+/* Each mission is a wide card: the painting fills it, the name and progress sit on the art, chips in the corner. */
+body.missions-on-board #missions .mc { display: block; padding: 0; }
+body.missions-on-board #missions .mc-art { position: absolute; inset: 0; height: auto; aspect-ratio: auto; border-right: 0; }
+body.missions-on-board #missions .mc-art .mc-svg, body.missions-on-board #missions .mc-art .mc-img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 45%; }
+body.missions-on-board #missions .mc::after { content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 1;
+  background: linear-gradient(90deg, rgba(6,4,3,.82) 0%, rgba(6,4,3,.35) 55%, rgba(6,4,3,.1) 100%), linear-gradient(to top, rgba(6,4,3,.85), rgba(6,4,3,0) 60%); }
+body.missions-on-board #missions .mc-name { position: absolute; z-index: 2; left: 0.9cqw; right: 0.9cqw; bottom: 1.9cqw; padding: 0;
+  font: 600 1.55cqw Georgia, serif; color: #f6ead0; text-shadow: 0 0.1cqw 0.5cqw #000, 0 0 1cqw #000; }
+body.missions-on-board #missions .mc-top { position: absolute; z-index: 2; top: 0.5cqw; left: auto; right: 0.6cqw; margin: 0; justify-content: flex-end; }
+body.missions-on-board #missions .mc-bottom { position: absolute; z-index: 2; left: 0; right: 0; bottom: 0; padding: 0 0.9cqw 0.45cqw; background: none; }
+body.missions-on-board #missions .mc-meta { justify-content: flex-end; gap: 0.6cqw; margin-bottom: 0.25cqw; position: absolute; right: 0.9cqw; bottom: 1.95cqw; }
+body.missions-on-board #missions .mc-prog { font-size: 1.15cqw; }
+body.missions-on-board #missions .mc-float, body.missions-on-board #missions .mc-stamp { z-index: 3; }

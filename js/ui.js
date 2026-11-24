@@ -679,6 +679,9 @@
       '<div class="mc-bottom"><div class="mc-meta"><span class="mc-prog"></span><span class="mc-tokens"></span></div><div class="mc-bar"><i></i></div></div>';
     b.addEventListener('click', () => onSlot(slot));
     Missions.attach(b, def);
+    // fill the card's shape whatever it is (a tall card, or a wide row on the board) instead of letterboxing
+    const svg = b.querySelector('.mc-art svg');
+    if (svg) svg.setAttribute('preserveAspectRatio', 'xMidYMid slice');
     if (!reduced) {
       b.addEventListener('pointermove', e => {
         if (e.pointerType === 'touch') return;
