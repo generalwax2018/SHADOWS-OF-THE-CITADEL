@@ -805,14 +805,7 @@ h1.has-logo { margin: 0; line-height: 0; }
 /* ======================= modifiers on cards, hover zoom, colour-blind mode, achievements, replay ======================= */
 .mc-mod { font-size: 10px; letter-spacing: .04em; padding: 1px 6px; border-color: #c9a66b; color: #f0d79a; }
 .mc-mod.rich { border-color: #6ec88a; color: #b8f0c8; }
-@media (min-width: 1360px) {
-  .missions-wrap { overflow: visible; max-height: none; }
-  .missions-wrap .mc { transition: scale .18s ease, box-shadow .18s; position: relative; }
-  .missions-wrap .mc:hover, .missions-wrap .mc:focus-visible { scale: 1.65; z-index: 40; box-shadow: 0 20px 50px rgba(0,0,0,.85); }
-  .missions-wrap .mc:nth-child(odd) { transform-origin: 70% 50%; }
-  .missions-wrap .mc:nth-child(even) { transform-origin: 100% 50%; }
-  .missions-wrap .mc:nth-child(-n+2) { transform-origin-y: 0; }
-}
+
 /* colour-blind friendly palette (Okabe-Ito): suits, danger and roles stay distinct for red-green colour blindness */
 html.cb { --blade: #E69F00; --shield: #56B4E9; --scroll: #CC79A7; --boot: #F0E442; --bad: #D55E00; }
 html.cb .card.suit-blade { border-color: #E69F00; } html.cb .card.suit-shield { border-color: #56B4E9; }
@@ -827,3 +820,21 @@ html.cb .pw.ward.on { border-color: #56B4E9; }
 .ach-list li b { color: var(--gold-hi); margin-right: 6px; }
 .replay { display: flex; flex-wrap: wrap; gap: 5px; padding: 8px; border: 1px solid #2a2218; border-radius: 8px; background: linear-gradient(90deg, rgba(0,0,0,.25), rgba(70,20,8,.3)); min-height: 40px; }
 .replay .tchip { animation: tchipIn .5s cubic-bezier(.2,.9,.3,1.2) both; }
+
+/* ======================= mission rail as a tidy list beside the board ======================= */
+.mc-name { display: none; }
+@media (min-width: 1360px) {
+  .layout { align-items: stretch; }
+  .stage-wrap, .side { align-self: flex-start; }
+  .missions-wrap { flex: 0 0 300px; display: flex; flex-direction: column; position: sticky; top: 10px; height: calc(100vh - 100px); max-height: none; overflow: visible; }
+  .missions-wrap .missions { display: flex !important; flex-direction: column; gap: 6px; flex: 1; min-height: 0; }
+  .missions-wrap .mslot { aspect-ratio: auto; flex: 1 1 0; min-height: 58px; max-height: 118px; }
+  .missions-wrap .mc { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: auto auto 1fr; column-gap: 10px; padding: 0 10px 6px 0; transform: none !important; scale: none !important; }
+  .missions-wrap .mc:hover { border-color: var(--gold); background: #15100a; }
+  .missions-wrap .mc-art { position: relative; inset: auto; grid-row: 1 / 4; height: 100%; aspect-ratio: 2 / 3; border-right: 1px solid #3a2f22; }
+  .missions-wrap .mc-shine { display: none; }
+  .missions-wrap .mc-name { display: block; grid-column: 2; padding-top: 6px; font: 600 14px Georgia, serif; color: #f0e4c8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .missions-wrap .mc-top { position: static; grid-column: 2; display: flex; gap: 4px; justify-content: flex-start; margin-top: 3px; }
+  .missions-wrap .mc-bottom { position: static; grid-column: 2; align-self: end; background: none; padding: 0; }
+  .missions-wrap .mc-meta { margin-bottom: 3px; }
+}

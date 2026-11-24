@@ -673,7 +673,7 @@
     b.type = 'button';
     b.dataset.qid = q.id;
     b.dataset.slot = slot;
-    b.innerHTML = `<div class="mc-art">${Missions.art(def)}</div><div class="mc-shine"></div>` +
+    b.innerHTML = `<div class="mc-art">${Missions.art(def)}</div><div class="mc-shine"></div><div class="mc-name">${esc(def.name)}</div>` +
       `<div class="mc-top"><span class="mc-chip mc-suit suit-${def.suit}" title="Favoured suit: ${C.SUIT_LABEL[def.suit]}">${ICONS[def.suit]}</span>` +
       `<span class="mc-chip mc-timer" title="Rounds left">${HOURGLASS}<b></b></span></div>` +
       '<div class="mc-bottom"><div class="mc-meta"><span class="mc-prog"></span><span class="mc-tokens"></span></div><div class="mc-bar"><i></i></div></div>';
