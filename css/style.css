@@ -1006,3 +1006,25 @@ button.feat-act:not(:disabled):hover { background: #5c4520; box-shadow: 0 0 12px
 .seat-pick { display: inline-flex; align-items: center; gap: 5px; color: var(--gold); font-size: 11.5px; }
 .seat-pick img { width: 18px; height: 24px; object-fit: cover; border-radius: 3px; }
 .seat-row { grid-template-columns: 24px 1fr auto auto; }
+/* ======================= release 20261124d: a bigger board ======================= */
+/* The board keeps its painted proportions, so its size is set by the window's height. Every pixel of height spent on
+   the top bar and the trail cost the board 1.5 px of width, so on desktop both are slimmed down. */
+@media (min-width: 981px) {
+  .topbar { padding: 4px 16px; min-height: 0; }
+  .logo-img { height: 40px; }
+  .topbtns button { padding: 6px 12px; }
+  .layout { padding: 10px 14px; gap: 14px; }
+  /* the trail's title sits on the same line as the trail, under the board */
+  .stage-wrap { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 10px; align-items: center; }
+  .stage-wrap > .stage { grid-column: 1 / -1; }
+  .stage-wrap > .missions-title { margin: 8px 0 0 2px; font-size: 11px; white-space: nowrap; }
+  .stage-wrap > .missions-title small { display: none; }
+  .stage-wrap > .trail { margin-top: 8px; min-height: 34px; padding: 3px 6px; }
+  .stage-wrap { max-width: calc((100vh - 116px) * 1.48) !important; }
+  .side { max-height: calc(100vh - 70px); }
+}
+/* Settings > Board size > Large: the board takes all the width beside the side panel (the page may scroll a little). */
+@media (min-width: 981px) {
+  html.board-large .stage-wrap { max-width: none !important; flex: 1 1 0; }
+  html.board-large .layout { justify-content: stretch; }
+}@media (min-width: 1600px) { .side { flex: 0 0 clamp(440px, 26vw, 520px); } }

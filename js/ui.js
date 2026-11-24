@@ -14,7 +14,7 @@
 
   // ---------- settings (remembered in this browser) ----------
   const SETTINGS_KEY = 'citadel-settings-v1';
-  const SET_DEFAULTS = { volume: 0.7, ambience: true, motion: 'system', text: 'normal', autoView: false, cb: false, muster: true };
+  const SET_DEFAULTS = { volume: 0.7, ambience: true, motion: 'system', text: 'normal', autoView: false, cb: false, muster: true, board: 'fit' };
   const SET = Object.assign({}, SET_DEFAULTS);
   try { Object.assign(SET, JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}); } catch (e) { /* storage blocked or damaged: use defaults */ }
   function saveSettings() { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(SET)); } catch (e) { /* ignore */ } }
@@ -28,6 +28,7 @@
     html.classList.toggle('full-motion', SET.motion === 'full');
     html.classList.toggle('large-text', SET.text === 'large');
     html.classList.toggle('cb', !!SET.cb);
+    html.classList.toggle('board-large', SET.board === 'large');
     if (window.CitadelFx && window.CitadelFx.setReduced) window.CitadelFx.setReduced(reduced);
     if (window.CitadelAmbience) window.CitadelAmbience.setReduced(reduced);
     ui.autoExp = !!SET.autoView;
@@ -1636,6 +1637,8 @@
       '<h3>Motion</h3>' +
       '<div class="set-row"><label for="setMotion">Animation</label><select id="setMotion" class="seed-input"><option value="system">Follow my device</option><option value="reduce">Reduce motion</option><option value="full">Full motion</option></select></div>' +
       '<label class="check"><input type="checkbox" id="setAuto"> Open the mission view automatically (expedition view)</label>' +
+      '<h3>Board</h3>' +
+      '<div class="set-row"><label for="setBoard">Board size</label><select id="setBoard" class="seed-input"><option value="fit">Fit the screen (no scrolling)</option><option value="large">Large (as wide as possible)</option></select></div>' +
       '<h3>Text</h3>' +
       '<label class="check"><input type="checkbox" id="setCb"> Colour-blind friendly colours</label>' +
       '<div class="set-row"><label for="setText">Side panel text</label><select id="setText" class="seed-input"><option value="normal">Normal</option><option value="large">Large</option></select></div>' +
@@ -1647,6 +1650,7 @@
       q('#setVol').value = Math.round(SET.volume * 100); q('#setVolOut').textContent = Math.round(SET.volume * 100) + '%';
       q('#setMotion').value = SET.motion; q('#setAuto').checked = SET.autoView; q('#setText').value = SET.text;
       q('#setCb').checked = !!SET.cb;
+      q('#setBoard').value = SET.board === 'large' ? 'large' : 'fit';
     };
     sync();
     const change = () => { saveSettings(); applySettings(); };
@@ -1658,6 +1662,7 @@
     q('#setAuto').onchange = e => { SET.autoView = e.target.checked; change(); };
     q('#setText').onchange = e => { SET.text = e.target.value; change(); };
     q('#setCb').onchange = e => { SET.cb = e.target.checked; change(); };
+    q('#setBoard').onchange = e => { SET.board = e.target.value; change(); };
     q('[data-a="reset"]').onclick = () => { Object.assign(SET, SET_DEFAULTS); Snd.setMuted(false); syncSoundButton(); change(); sync(); };
     q('[data-a="done"]').onclick = closeModal;
     q('[data-a="tour"]').onclick = () => { closeModal(); if (window.__startTour) window.__startTour(); };
